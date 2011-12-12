@@ -12,13 +12,17 @@
 #include "fitsio.h"
 
 int main(int argc, char *argv[]) {
+	// Declare variables
 	fitsfile *fptr;
 	int status = 0;
-	int bitpix, naxis;
+	int naxis;
 	int i;
 
+	// Open file for read only access
 	fits_open_file(&fptr,"//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits", READONLY, &status);
 
+	// Code for reading in image type (currently unused).
+	/*
 	fits_get_img_type(fptr,&bitpix,&status);
 
 	switch (bitpix) {
@@ -28,26 +32,24 @@ int main(int argc, char *argv[]) {
 		case FLOAT_IMG: fprintf(stdout,"FLOAT_IMG\n"); break;
 		case DOUBLE_IMG: fprintf(stdout,"DOUBLE_IMG\n"); break;
 		default: fprintf(stdout,"Unknown type\n"); break;
-	}
+	}*/
 
+	// Get image dimension and resolution
 	fits_get_img_dim(fptr,&naxis,&status);
-
-	fprintf(stdout,"Dim: %d\n",naxis);
 
 	long naxes[3];
 
 	fits_get_img_size(fptr,3,naxes,&status);
 
-	for (i=0; i<3; i++) {
-		fprintf(stdout,"N%d: %d\n",i+1,naxes[i]);
-	}
-
-	float bsd;
-	float bzd;
 	short int blank;
 
+	// Code for reading BSCALE/BZERO values as floats.  Unnecessary.
+/*	float bsd;
+	float bzd;
+
 	fits_read_key(fptr,TFLOAT,"BSCALE",(void*)&bsd,NULL,&status);
-	fits_read_key(fptr,TFLOAT,"BZERO",(void*)&bzd,NULL,&status);
+	fits_read_key(fptr,TFLOAT,"BZERO",(void*)&bzd,NULL,&status);*/
+
 	fits_read_key(fptr,TSHORT,"BLANK",(void*)&blank,NULL,&status);
 
 	float ia[naxes[0]*naxes[1]];
@@ -56,6 +58,7 @@ int main(int argc, char *argv[]) {
 
 	long fpixel[] = {1L,1L,1L};
 
+	// Read image
 	fits_read_pix(fptr,TFLOAT,fpixel,naxes[0]*naxes[1],(void*)&blank,ia,&anynul,&status);
 
 	for (i=0; i<naxes[0]*naxes[1]; i++) {
@@ -66,13 +69,14 @@ int main(int argc, char *argv[]) {
 		fprintf(stdout," %+6f ",ia[i]);
 	}
 
-	char bs[BUFSIZ];
+	// Code for reading in BSCALE/BZERO values as text.  Unnecessary as the library handles reading the variables.
+/*	char bs[BUFSIZ];
 	char bz[BUFSIZ];
 
 	fits_read_card(fptr,"BSCALE",bs,&status);
 	fits_read_card(fptr,"BZERO",bz,&status);
 
 	fprintf(stdout,"BSCALE: %f, BZERO: %f, BLANK: %d\n",bsd,bzd,blank);
-
+*/
 	exit(EXIT_SUCCESS);
 }
