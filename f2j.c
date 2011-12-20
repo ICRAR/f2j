@@ -105,35 +105,17 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 
 	if (transform == LINEAR) {
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
-		int max = -1;
-		int min = -1;
-		bool minset = false;
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[ii] + 32768;
-
-			if (imageData[ii]>max) {
-				max = imageData[ii];
-			}
-			if (!minset) {
-				if (imageData[ii]>0) {
-					minset = true;
-					min = imageData[ii];
-				}
-			}
-			else {
-				if (imageData[ii]>0) {
-					if (imageData[ii]<min) {
-						min = imageData[ii];
-					}
-				}
-			}
-
-
 		}
 
-		fprintf(stdout,"\n Image Max:[%d] Min:[%d] Dif:[%d]",max,min,max-min);
-
 		return 0;
+	}
+	else if (transform == NEGATIVE_LINEAR) {
+		// As for linear, but subtract from 65535
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = 32767 - (int) rawData[ii];
+		}
 	}
 	else {
 		fprintf(stderr,"This data type is not currently supported.\n");
@@ -255,7 +237,8 @@ int floatImgTransform(float *rawData, int *imageData, transform transform, int l
  * program, allowing it to be used in subsequent IO operations.
  * info: Data structure containing information about the data cube, including width, length
  * and height.
- * status: Reference to status variable used by CFITSIO.
+ * status: Reference to status variable used by CFITSIO.  Must have been initialised to
+ * 0 by the time that this function is called.
  *
  * Returns 0 if the read was successful or 1 otherwise.
  */
@@ -340,12 +323,17 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  * read.
  *
  * Parameter:
- * ffname - FITS file name
- * transform - pointer to a function that takes a floating point value and converts it to an integer
- * value.  This is used to create integer grayscale intensity values from the raw FITS data in floating
- * point form.
- * imageStruct - Reference to an image structure.  This function will populate most of the data values.
+ * fptr - pointer to a CFITSIO fitsfile structure corresponding to a particular FITS file.  Must
+ * have been opened using CFITSIO by the time this function is called.
+ * transform - transform to be performed on raw data from FITS file to create grayscale image intensities
+ * for our output image.  See f2j.h for possible values.
+ * imageStruct - Reference to an image structure.  This function will populate most of the data values,
+ * however, memory must have been assigned for the image data array (in the first component) by the time
+ * that this function is called.
  * frame - Plane of data to read for a 3D data cube.
+ * info - Pointer to a cube_info structure (see f2j.h) containing data on the image being read.
+ * status - Pointer to CFITSIO status integer.  The value must have been initialised to 0 by the time
+ * that this function is called.
  *
  * Returns 0 if there were no errors, 1 otherwise.
  */
@@ -476,57 +464,13 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 
 	return 0;
 }
-/*
-int mainss(int argc, char *argv[]) {
-
-	//short int blank;
-
-	// Code for reading BSCALE/BZERO values as floats.  Unnecessary.
-	float bsd;
-	float bzd;
-
-	fits_read_key(fptr,TFLOAT,"BSCALE",(void*)&bsd,NULL,&status);
-	fits_read_key(fptr,TFLOAT,"BZERO",(void*)&bzd,NULL,&status);
-
-	//fits_read_key(fptr,TSHORT,"BLANK",(void*)&blank,NULL,&status);
-
-	// Code for reading in BSCALE/BZERO values as text.  Unnecessary as the library handles reading the variables.
-	char bs[BUFSIZ];
-	char bz[BUFSIZ];
-
-	fits_read_card(fptr,"BSCALE",bs,&status);
-	fits_read_card(fptr,"BZERO",bz,&status);
-
-}*/
-
-/**
-sample error callback expecting a FILE* client object
-*/
-void error_callback(const char *msg, void *client_data) {
-	FILE *stream = (FILE*)client_data;
-	fprintf(stream, "[ERROR] %s", msg);
-}
-/**
-sample warning callback expecting a FILE* client object
-*/
-void warning_callback(const char *msg, void *client_data) {
-	FILE *stream = (FILE*)client_data;
-	fprintf(stream, "[WARNING] %s", msg);
-}
-/**
-sample debug callback expecting a FILE* client object
-*/
-void info_callback(const char *msg, void *client_data) {
-	FILE *stream = (FILE*)client_data;
-	fprintf(stream, "[INFO] %s", msg);
-}
 
 int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
 	char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
-	transform transform = LINEAR;
+	transform transform = NEGATIVE_LINEAR;
 
 	// Should the intermediate image be written to a (losslessly compressed) image?
 	// May need to compare lossy & lossless compression.  Eventually, we'll take this
@@ -649,14 +593,14 @@ int main(int argc, char *argv[]) {
 			// Initialise to default values.
 			opj_set_default_encoder_parameters(&parameters);
 
+			// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
 			parameters.tcp_mct = 0;
 
-			/* if no rate entered, lossless by default */
-				if (parameters.tcp_numlayers == 0) {
-					parameters.tcp_rates[0] = 0;	/* MOD antonin : losslessbug */
-					parameters.tcp_numlayers++;
-					parameters.cp_disto_alloc = 1;
-				}
+			if (parameters.tcp_numlayers == 0) {
+				parameters.tcp_rates[0] = 0;
+				parameters.tcp_numlayers++;
+				parameters.cp_disto_alloc = 1;
+			}
 
 			// Eventually, we'll alter the compression parameters at this point.
 
@@ -665,11 +609,6 @@ int main(int argc, char *argv[]) {
 
 			// Event manager object for error/warning/debug messages.
 			opj_event_mgr_t event_mgr;
-
-			memset(&event_mgr, 0, sizeof(opj_event_mgr_t));
-				event_mgr.error_handler = error_callback;
-				event_mgr.warning_handler = warning_callback;
-				event_mgr.info_handler = info_callback;
 
 			// Catch events
 			opj_set_event_mgr((opj_common_ptr)cinfo,&event_mgr,stderr);
