@@ -24,7 +24,7 @@
 	\
 	fits_read_pix(fptr,fitstype,fpixel,info->width*info->height,NULL,imageArray,NULL,status);\
 	\
-	if (status != 0) {\
+	if (*status != 0) {\
 		fprintf(stderr,"Error reading frame %d of image.\n",frame);\
 		return 1;\
 	}\
@@ -100,8 +100,45 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  * Returns 0 if the transform could be performed successfully, 1 otherwise.
  */
 int shortImgTransform(short *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
-	return 1;
+	// Loop variables
+	int ii;
+
+	if (transform == LINEAR) {
+		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
+		int max = -1;
+		int min = -1;
+		bool minset = false;
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) rawData[ii] + 32768;
+
+			if (imageData[ii]>max) {
+				max = imageData[ii];
+			}
+			if (!minset) {
+				if (imageData[ii]>0) {
+					minset = true;
+					min = imageData[ii];
+				}
+			}
+			else {
+				if (imageData[ii]>0) {
+					if (imageData[ii]<min) {
+						min = imageData[ii];
+					}
+				}
+			}
+
+
+		}
+
+		fprintf(stdout,"\n Image Max:[%d] Min:[%d] Dif:[%d]",max,min,max-min);
+
+		return 0;
+	}
+	else {
+		fprintf(stderr,"This data type is not currently supported.\n");
+		return 1;
+	}
 }
 
 /*
@@ -374,7 +411,35 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// 16 bit signed integer case
 	else if (info->bitpix == SHORT_IMG) {
-		READ_AND_TRANSFORM(short,TSHORT,shortImgTransform);
+		if (*status != 0) {
+								fprintf(stderr,"NPrior error reading frame %d of image.\n",frame);
+								return 1;
+							}
+		// Turn off scaling for this data stream.
+		fits_set_bscale(fptr,1.0,0.0,status);
+
+
+		if (*status != 0) {
+						fprintf(stderr,"FPrior error reading frame %d of image.\n",frame);
+						return 1;
+					}
+
+			short imageArray[info->width*info->height];
+
+			fits_read_pix(fptr,TSHORT,fpixel,info->width*info->height,NULL,imageArray,NULL,status);
+
+			if (*status != 0) {
+				fprintf(stderr,"XError reading frame %d of image.\n",frame);
+				return 1;
+			}
+			int transformResult = shortImgTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height);
+
+			if (transformResult != 0) {
+				fprintf(stderr,"Specified transform could not be performed.\n");
+				return 1;
+			}
+
+		//XREAD_AND_TRANSFORM(short,TSHORT,shortImgTransform);
 	}
 	// 32 bit signed integer case
 	else if (info->bitpix == LONG_IMG) {
@@ -405,7 +470,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		READ_AND_TRANSFORM(unsigned int,TULONG,uIntImgTransform);
 	}
 	else {
-		fprintf(stderr,"Unsupported image type: %d\n",info->bitpix);
+		fprintf(stderr,"Unsupported FITS image type: %d\n",info->bitpix);
 		return 1;
 	}
 
@@ -413,35 +478,6 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 }
 /*
 int mainss(int argc, char *argv[]) {
-	// Declare variables
-	fitsfile *fptr;
-	int status = 0;
-	int bitpix;
-	int naxis;
-	int i;
-
-	// Open file for read only access
-	fits_open_file(&fptr,"//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits", READONLY, &status);
-
-	// Code for reading in image type (currently unused).
-
-	fits_get_img_type(fptr,&bitpix,&status);
-
-	switch (bitpix) {
-		case BYTE_IMG: fprintf(stdout,"BYTE_IMG\n"); break;
-		case SHORT_IMG: fprintf(stdout,"SHORT_IMG\n"); break;
-		case LONG_IMG: fprintf(stdout,"LONG_IMG\n"); break;
-		case FLOAT_IMG: fprintf(stdout,"FLOAT_IMG\n"); break;
-		case DOUBLE_IMG: fprintf(stdout,"DOUBLE_IMG\n"); break;
-		default: fprintf(stdout,"Unknown type\n"); break;
-	}
-
-	// Get image dimension and resolution
-	fits_get_img_dim(fptr,&naxis,&status);
-
-	long naxes[3];
-
-	fits_get_img_size(fptr,3,naxes,&status);
 
 	//short int blank;
 
@@ -454,23 +490,6 @@ int mainss(int argc, char *argv[]) {
 
 	//fits_read_key(fptr,TSHORT,"BLANK",(void*)&blank,NULL,&status);
 
-	double ia[naxes[0]*naxes[1]];
-
-	//int anynul;
-
-	long fpixel[] = {1L,1L,2L};
-
-	// Read image
-	fits_read_pix(fptr,TDOUBLE,fpixel,naxes[0]*naxes[1],NULL,ia,NULL,&status);
-
-	for (i=0; i<naxes[0]*naxes[1]; i++) {
-		if (i%naxes[0] == 0) {
-			fprintf(stdout,"\n");
-		}
-
-		fprintf(stdout," %+12e ",ia[i]);
-	}
-
 	// Code for reading in BSCALE/BZERO values as text.  Unnecessary as the library handles reading the variables.
 	char bs[BUFSIZ];
 	char bz[BUFSIZ];
@@ -478,12 +497,31 @@ int mainss(int argc, char *argv[]) {
 	fits_read_card(fptr,"BSCALE",bs,&status);
 	fits_read_card(fptr,"BZERO",bz,&status);
 
-	fprintf(stdout,"BSCALE: %f, BZERO: %f, BLANK: %d\n",bsd,bzd,blank);
-
-	exit(EXIT_SUCCESS);
 }*/
 
-int _main(int argc, char *argv[]) {
+/**
+sample error callback expecting a FILE* client object
+*/
+void error_callback(const char *msg, void *client_data) {
+	FILE *stream = (FILE*)client_data;
+	fprintf(stream, "[ERROR] %s", msg);
+}
+/**
+sample warning callback expecting a FILE* client object
+*/
+void warning_callback(const char *msg, void *client_data) {
+	FILE *stream = (FILE*)client_data;
+	fprintf(stream, "[WARNING] %s", msg);
+}
+/**
+sample debug callback expecting a FILE* client object
+*/
+void info_callback(const char *msg, void *client_data) {
+	FILE *stream = (FILE*)client_data;
+	fprintf(stream, "[INFO] %s", msg);
+}
+
+int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
 	char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
 
@@ -497,7 +535,7 @@ int _main(int argc, char *argv[]) {
 
 	// Declare variables for reading FITS files needed by CFITSIO.
 	fitsfile *fptr;
-	int status;
+	int status = 0;
 
 	// Loop variables
 	int ii;
@@ -542,7 +580,7 @@ int _main(int argc, char *argv[]) {
 		}
 	}
 	else {
-		for (ii=0; ii<info.depth; ii++) {
+		for (ii=1; ii<=info.depth; ii++) {
 			// Initialise an OpenJPEG image structure with a single component with data storage
 			// initialised to the width and height of the image.
 			// If this code was being run in serial, we could save time by initialising the image structure
@@ -561,7 +599,7 @@ int _main(int argc, char *argv[]) {
 			frame.comps[0].data = image_data;
 
 			// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
-			// they will be set in the createImageFromFITS.  We don't want to get into the minutae of writing
+			// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
 			// image data at this point.
 
 			// Create image
@@ -595,7 +633,7 @@ int _main(int argc, char *argv[]) {
 			// Get the last dot
 			char *dotPosition = strrchr(fileStub,'.');
 
-			// Overwrite it with underscore.
+			// Overwrite it with an underscore.
 			*dotPosition = '_';
 			*(dotPosition+1) = '\0';
 
@@ -611,15 +649,30 @@ int _main(int argc, char *argv[]) {
 			// Initialise to default values.
 			opj_set_default_encoder_parameters(&parameters);
 
+			parameters.tcp_mct = 0;
+
+			/* if no rate entered, lossless by default */
+				if (parameters.tcp_numlayers == 0) {
+					parameters.tcp_rates[0] = 0;	/* MOD antonin : losslessbug */
+					parameters.tcp_numlayers++;
+					parameters.cp_disto_alloc = 1;
+				}
+
 			// Eventually, we'll alter the compression parameters at this point.
 
 			// Get compressor handle using the specified codec.
-			opj_cinfo_t* cinfo = opj_create_compress(codec);
+			opj_cinfo_t *cinfo = opj_create_compress(codec);
 
 			// Event manager object for error/warning/debug messages.
 			opj_event_mgr_t event_mgr;
+
+			memset(&event_mgr, 0, sizeof(opj_event_mgr_t));
+				event_mgr.error_handler = error_callback;
+				event_mgr.warning_handler = warning_callback;
+				event_mgr.info_handler = info_callback;
+
 			// Catch events
-			opj_set_event_mgr((opj_common_ptr)cinfo, &event_mgr, stderr);
+			opj_set_event_mgr((opj_common_ptr)cinfo,&event_mgr,stderr);
 
 			// IO stream for compression.
 			opj_cio_t *cio = NULL;

@@ -29,7 +29,7 @@ typedef struct {
 // on raw FITS data to convert each datum into a 16 bit grayscale
 // (integer) intensity.
 typedef enum {
-	LOG,LINEAR,RAW
+	LOG,LINEAR
 } transform;
 
 #endif /* F2J_H_ */
