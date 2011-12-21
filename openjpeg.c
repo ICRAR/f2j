@@ -75,8 +75,13 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * Command line parser.  Take command line parameters, parses them and encodes an
  * opj_cparameters_t object with the specified compression parameters.  Extracted, with
  * minor modifications, from image_to_j2k.c.
+ *
+ * Also read from the command line (in addition to encoding parameters from OpenJPEG):
+ * -transform (option A) - how should the raw FITS data be transformed?
+ * -writeUncompressed (option L) - should a lossless version of the image be written
+ * in addition to the (possibly lossy) version?
  */
-int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters) {
+int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed) {
 	int i, j,totlen;
 	option_t long_option[]={
 		{"cinema2K",REQ_ARG, NULL ,'w'},
@@ -91,7 +96,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters) 
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:"
+	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -107,6 +112,38 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters) 
 		if (c == -1)
 			break;
 		switch (c) {
+			/* Not in OpenJPEG version - should a lossless version be written? */
+			case 'L':
+			{
+				*writeUncompressed = true;
+			}
+			break;
+
+			/* What transform should be performed on the raw FITS data? */
+			case 'A':
+			{
+				// This should be synced with the possibilities in f2j.h.
+				char *transformString = optarg;
+
+				if (strcasecmp(transformString,"LOG") == 0) {
+					*transform = LOG;
+				}
+				else if (strcasecmp(transformString,"NEGATIVE_LOG") == 0) {
+					*transform = NEGATIVE_LOG;
+				}
+				else if (strcasecmp(transformString,"LINEAR") == 0) {
+					*transform = LINEAR;
+				}
+				else if (strcasecmp(transformString,"NEGATIVE_LINEAR") == 0) {
+					*transform = NEGATIVE_LINEAR;
+				}
+				else {
+					fprintf(stderr,"Unknown transform specified: %s.  Using default instead.\n",optarg);
+				}
+			}
+ 			break;
+
+			/* Largely as in OpenJPEG below */
 			case 'i':			/* input file */
 			{
 				char *infile = optarg;
@@ -819,6 +856,9 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters) 
 		parameters->tcp_rates[0] = 0;	/* MOD antonin : losslessbug */
 		parameters->tcp_numlayers++;
 		parameters->cp_disto_alloc = 1;
+
+		// No need to write lossless version twice.
+		*writeUncompressed = false;
 	}
 
 	if((parameters->cp_tx0 > parameters->image_offset_x0) || (parameters->cp_ty0 > parameters->image_offset_y0)) {

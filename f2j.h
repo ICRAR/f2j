@@ -50,12 +50,6 @@
 #include "fitsio.h"
 #include "openjpeg.h"
 
-// External function declarations.
-// f2j.c
-extern void displayHelp();
-// openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *);
-
 // Structure for defining essential properties of a FITS datacube.
 typedef struct {
 	long width;
@@ -71,5 +65,11 @@ typedef struct {
 typedef enum {
 	LOG,NEGATIVE_LOG,LINEAR,NEGATIVE_LINEAR
 } transform;
+
+// External function declarations.
+// f2j.c
+extern void displayHelp();
+// openjpeg.c
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *);
 
 #endif /* F2J_H_ */

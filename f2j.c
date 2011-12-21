@@ -776,6 +776,14 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 }
 
 int main(int argc, char *argv[]) {
+	// Transform (if any) to perform on raw data.  This is a default value.  May be changed
+	// when parsing user input from the command line.
+	transform transform = LOG;
+
+	// Should a lossless version of image be written?  By default, no.  May be changed
+	// when parsing user input from the command line.
+	bool writeUncompressed = false;
+
 	// Structure to hold compression parameters.
 	opj_cparameters_t parameters;
 
@@ -783,7 +791,7 @@ int main(int argc, char *argv[]) {
 	opj_set_default_encoder_parameters(&parameters);
 
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -795,16 +803,8 @@ int main(int argc, char *argv[]) {
 	// images.
 	parameters.tcp_mct = 0;
 
-	// FITS file to read.  Eventually, we will take this as a parameter.
+	// FITS file to read.
 	char *ffname = parameters.infile;
-
-	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
-	transform transform = LOG;
-
-	// Should the intermediate image be written to a (losslessly compressed) image?
-	// May need to compare lossy & lossless compression.  Eventually, we'll take this
-	// as a parameter.
-	bool writeUncompressed = false;
 
 	// Declare variables for reading FITS files needed by CFITSIO.
 	fitsfile *fptr;
