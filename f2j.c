@@ -101,6 +101,11 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  * Returns 0 if the transform could be performed successfully, 1 otherwise.
  */
 int shortImgTransform(short *rawData, int *imageData, transform transform, int len) {
+	if (rawData == NULL || imageData == NULL || len < 1) {
+		fprintf(stderr,"Data arrays to shortImgTransform cannot be null or empty.\n");
+		return 1;
+	}
+
 	// Loop variables
 	int ii;
 
@@ -212,10 +217,15 @@ int floatImgTransform(float *rawData, int *imageData, transform transform, int l
 }
 
 int floatCustomTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
+	if (rawData == NULL || imageData == NULL || len < 1) {
+		fprintf(stderr,"Data arrays in floatCustomTransform cannot be null or empty.\n");
+		return 1;
+	}
+
 	// Loop variables
 	int ii;
 
-	if (transform == LOG) {
+	if (transform == LOG || transform == NEGATIVE_LOG) {
 		double absMin = datamin;
 		double zero = 0.0;
 
@@ -239,6 +249,10 @@ int floatCustomTransform(double *rawData, int *imageData, transform transform, i
 			}
 			else if (imageData[ii] > 65535) {
 				imageData[ii] = 65535;
+			}
+
+			if (transform == NEGATIVE_LOG) {
+				imageData[ii] = 65535 - imageData[ii];
 			}
 		}
 
@@ -292,7 +306,7 @@ int floatCustomTransform(double *rawData, int *imageData, transform transform, i
  */
 int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 	// Check parameters.
-	if (ffname == NULL || fptr == NULL || info == NULL) {
+	if (ffname == NULL || fptr == NULL || info == NULL || status == NULL) {
 		fprintf(stderr,"Parameters to getFITSInfo cannot be null.\n");
 		return 1;
 	}
@@ -561,6 +575,11 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
  * Returns 0 if compression was successful, 1 otherwise.
  */
 int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t *parameters, opj_image_t *frame) {
+	if (outfile == NULL || parameters == NULL || frame == NULL) {
+		fprintf(stderr,"Parameters to createJPEG2000Image cannot be null.\n");
+		return 1;
+	}
+
 	// Write compressed image to file.  This code is based on that in image_to_j2k.c in the
 	// OpenJPEG library.
 
@@ -654,6 +673,12 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int frameNumber, int *status, char *outFileStub,
 		bool writeUncompressed, opj_cparameters_t *parameters) {
+	// Check parameters
+	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL) {
+		fprintf(stderr,"Parameters to setupCompression cannot be null.\n");
+		return 1;
+	}
+
 	// Initialise an OpenJPEG image structure with a single component with data storage
 	// initialised to the width and height of the image.
 
@@ -748,7 +773,7 @@ int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
 	//char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
 	//char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
-	char *ffname = "//Users//acannon//Downloads//FITS//SST2cont.image.restored.fits";
+	char *ffname = "//Users//acannon//Downloads//FITS//M31_model_5Mpc.fits";
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
 	transform transform = LOG;
