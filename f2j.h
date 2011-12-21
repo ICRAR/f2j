@@ -51,7 +51,10 @@
 #include "openjpeg.h"
 
 // External function declarations.
+// f2j.c
 extern void displayHelp();
+// openjpeg.c
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *);
 
 // Structure for defining essential properties of a FITS datacube.
 typedef struct {

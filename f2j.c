@@ -737,7 +737,6 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 		// Create filename string for losslessly compressed file.
 		// Name is STUB_LOSSLESS.jp2
 		char losslessFile[stublen + 14];
-
 		sprintf(losslessFile,"%s_LOSSLESS.jp2",outFileStub);
 
 		// Perform JPEG 2000 compression.
@@ -777,10 +776,27 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 }
 
 int main(int argc, char *argv[]) {
+	// Structure to hold compression parameters.
+	opj_cparameters_t parameters;
+
+	// Initialise to default values.
+	opj_set_default_encoder_parameters(&parameters);
+
+	// Parse command line parameters.
+	int result = parse_cmdline_encoder(argc,argv,&parameters);
+
+	if (result != 0) {
+		fprintf(stderr,"Error parsing command parameters.\n");
+		displayHelp();
+	}
+
+	// image_to_j2k.c sets this to 1 if the image to be encoded has 3 components, or 0
+	// otherwise.  We always set it to 0, as we are always encoding 1 component (grayscale)
+	// images.
+	parameters.tcp_mct = 0;
+
 	// FITS file to read.  Eventually, we will take this as a parameter.
-	//char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
-	//char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
-	char *ffname = "//Users//acannon//Downloads//FITS//M31_model_5Mpc.fits";
+	char *ffname = parameters.infile;
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
 	transform transform = LOG;
@@ -801,33 +817,13 @@ int main(int argc, char *argv[]) {
 	cube_info info;
 
 	// Read basic information on FITS file.
-	int result = getFITSInfo(ffname,&fptr,&info,&status);
+	result = getFITSInfo(ffname,&fptr,&info,&status);
 
 	// Display error if FITS file could not be opened.
 	if (result != 0) {
 		fprintf(stderr,"FITS file %s cannot be opened or is invalid.\n",ffname);
 		fits_close_file(fptr,&status);
 		exit(EXIT_FAILURE);
-	}
-
-	// Structure to hold compression parameters.
-	opj_cparameters_t parameters;
-
-	// Initialise to default values.
-	opj_set_default_encoder_parameters(&parameters);
-
-	// Codec format to use.  Eventually, probably take this as a user parameter.
-	// Currently set to JPEG2000 file format.  Possible values available at:
-	// http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf
-	parameters.cod_format = CODEC_JP2;
-
-	// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
-	parameters.tcp_mct = 0;
-
-	if (parameters.tcp_numlayers == 0) {
-		parameters.tcp_rates[0] = 0;
-		parameters.tcp_numlayers++;
-		parameters.cp_disto_alloc = 1;
 	}
 
 	// Eventually, we'll alter the compression parameters at this point.
