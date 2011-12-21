@@ -20,7 +20,7 @@
 // transformFunction is the function used to transform raw input data from the FITS file
 // into output data.
 #define READ_AND_TRANSFORM(type,fitstype,transformFunction) { \
-	type imageArray[info->width*info->height];\
+	type *imageArray = (type *) malloc(sizeof(type)*info->width*info->height);\
 	\
 	fits_read_pix(fptr,fitstype,fpixel,info->width*info->height,NULL,imageArray,NULL,status);\
 	\
@@ -34,6 +34,7 @@
 		fprintf(stderr,"Specified transform could not be performed.\n");\
 		return 1;\
 	}\
+	free(imageArray);\
 }
 
 /*
@@ -116,6 +117,8 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 32767 - (int) rawData[ii];
 		}
+
+		return 0;
 	}
 	else {
 		fprintf(stderr,"This data type is not currently supported.\n");
@@ -204,28 +207,73 @@ int doubleImgTransform(double *rawData, int *imageData, transform transform, int
  * Returns 0 if the transform could be performed successfully, 1 otherwise.
  */
 int floatImgTransform(float *rawData, int *imageData, transform transform, int len) {
-	if (rawData == NULL || imageData == NULL) {
-		fprintf(stderr,"IO arrays cannot be null.\n");
-		return 1;
-	}
+	fprintf(stderr,"This data type is not currently supported.\n");
+	return 1;
+}
 
-	// LOG transform
+int floatCustomTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
+	// Loop variables
+	int ii;
+
 	if (transform == LOG) {
-		fprintf(stderr,"Specified transform not supported at this time.\n");
-		return 1;
+		double absMin = datamin;
+		double zero = 0.0;
+
+		if (datamin < 0.0) {
+			absMin = -absMin;
+			zero = 2*absMin;
+		}
+		else if (datamin <= 0.0) {
+			absMin = 0.000001;
+			zero = absMin;
+		}
+
+		double scale = 65535.0/log((datamax+zero)/absMin);
+
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) (scale * log( (rawData[ii] + zero) / absMin) );
+
+			// Shouldn't get values outside this range, but just in case.
+			if (imageData[ii] < 0) {
+				imageData[ii] = 0;
+			}
+			else if (imageData[ii] > 65535) {
+				imageData[ii] = 65535;
+			}
+		}
+
+		return 0;
 	}
-	// LINEAR transform
-	else if (transform == LINEAR) {
-		fprintf(stderr,"Specified transform not supported at this time.\n");
-		return 1;
-	}
-	// Display error when a specified transform is not supported.
-	else {
-		fprintf(stderr,"Specified transform not supported.\n");
-		return 1;
+	else if (transform == LINEAR || transform == NEGATIVE_LINEAR) {
+		double absMin = datamin;
+		double zero = 0.0;
+
+		if (datamin < 0.0) {
+			absMin = -absMin;
+			zero = absMin;
+		}
+
+		double scale = 65535.0/(datamax+zero);
+
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) (rawData[ii] * scale);
+
+			if (imageData[ii] < 0) {
+				imageData[ii] = 0;
+			}
+			else if (imageData[ii] > 65535) {
+				imageData[ii] = 65535;
+			}
+
+			if (transform == NEGATIVE_LINEAR) {
+				imageData[ii] = 65535 - imageData[ii];
+			}
+		}
+
+		return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 /*
@@ -399,35 +447,10 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// 16 bit signed integer case
 	else if (info->bitpix == SHORT_IMG) {
-		if (*status != 0) {
-								fprintf(stderr,"NPrior error reading frame %d of image.\n",frame);
-								return 1;
-							}
 		// Turn off scaling for this data stream.
 		fits_set_bscale(fptr,1.0,0.0,status);
 
-
-		if (*status != 0) {
-						fprintf(stderr,"FPrior error reading frame %d of image.\n",frame);
-						return 1;
-					}
-
-			short imageArray[info->width*info->height];
-
-			fits_read_pix(fptr,TSHORT,fpixel,info->width*info->height,NULL,imageArray,NULL,status);
-
-			if (*status != 0) {
-				fprintf(stderr,"XError reading frame %d of image.\n",frame);
-				return 1;
-			}
-			int transformResult = shortImgTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height);
-
-			if (transformResult != 0) {
-				fprintf(stderr,"Specified transform could not be performed.\n");
-				return 1;
-			}
-
-		//XREAD_AND_TRANSFORM(short,TSHORT,shortImgTransform);
+		READ_AND_TRANSFORM(short,TSHORT,shortImgTransform);
 	}
 	// 32 bit signed integer case
 	else if (info->bitpix == LONG_IMG) {
@@ -439,7 +462,37 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// 32 bit floating point case
 	else if (info->bitpix == FLOAT_IMG) {
-		READ_AND_TRANSFORM(float,TFLOAT,floatImgTransform);
+		// Get min/max data values
+		double datamax;
+		double datamin;
+
+		fits_read_key(fptr,TDOUBLE,"DATAMAX",&datamax,NULL,status);
+		fits_read_key(fptr,TDOUBLE,"DATAMIN",&datamin,NULL,status);
+
+		double *imageArray = (double *) malloc(sizeof(double) * info->width * info->height);
+
+		if (imageArray == NULL) {
+			fprintf(stderr,"Unable to allocate memory to read FITS data.\n");
+			return 1;
+		}
+
+		fits_read_pix(fptr,TDOUBLE,fpixel,info->width*info->height,NULL,imageArray,NULL,status);
+
+		if (*status != 0) {
+			fprintf(stderr,"Error reading frame %d of image.\n",frame);
+			return 1;
+		}
+
+		int transformResult = floatCustomTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax);
+
+		if (transformResult != 0) {
+			fprintf(stderr,"Specified transform could not be performed.\n");
+			return 1;
+		}
+
+		free(imageArray);
+
+		//READ_AND_TRANSFORM(float,TFLOAT,floatImgTransform);
 	}
 	// 64 bit floating point case
 	else if (info->bitpix == DOUBLE_IMG) {
@@ -465,12 +518,94 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	return 0;
 }
 
+/*
+ * Encodes a specified image to a specified JPEG 2000 file.  While this function checks that the
+ * specified parameters are not null, in general, they are assumed to be correct, and it is the
+ * responsibility of the client code to ensure meaningful data is passed to this function.
+ *
+ * outfile - name of JPEG 2000 image to create.  This file will be overwritten if it already
+ * exists.
+ * codec - specified codec to use.  See http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf
+ * for legal values.
+ * parameters - compression parameters to use.
+ * frame - image to compress.
+ *
+ * Returns 0 if compression was successful, 1 otherwise.
+ */
+int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t *parameters, opj_image_t *frame) {
+	// Write compressed image to file.  This code is based on that in image_to_j2k.c in the
+	// OpenJPEG library.
+
+	// Permissions for writing output JPEG 2000 file.  Currently write as binary file.
+	char *writePermissions = "wb";
+
+	// Get compressor handle using the specified codec.
+	opj_cinfo_t *cinfo = opj_create_compress(codec);
+
+	// Event manager object for error/warning/debug messages.
+	opj_event_mgr_t event_mgr;
+	memset(&event_mgr,0,sizeof(opj_event_mgr_t));
+
+	// Catch events
+	opj_set_event_mgr((opj_common_ptr)cinfo,&event_mgr,stderr);
+
+	// IO stream for compression.
+	opj_cio_t *cio = NULL;
+
+	// Pointer for file to write to.
+	FILE *f = NULL;
+
+	// Setup encoder with the current frame and the specified parameters.
+	opj_setup_encoder(cinfo,parameters,frame);
+
+	// Open IO stream for compression.
+	cio = opj_cio_open((opj_common_ptr)cinfo,NULL,0);
+
+	// Was compression successful?
+	bool compSuccess = opj_encode(cinfo,cio,frame,NULL);
+
+	// Exit unsuccessfully if compression unsuccessful.
+	if (!compSuccess) {
+		fprintf(stderr,"Unable to compress file %s.\n",outfile);
+		opj_cio_close(cio);
+		return 1;
+	}
+
+	// Get length of codestream.
+	int codestream_length = cio_tell(cio);
+
+	// Open FILE handle.
+	f = fopen(outfile,writePermissions);
+
+	// Check that file was opened successfully.
+	if (!f) {
+		fprintf(stderr,"Unable to open output file: %s for writing.\n",outfile);
+		opj_cio_close(cio);
+		return 1;
+	}
+
+	// Write data to file.
+	fwrite(cio->buffer,1,codestream_length,f);
+
+	// Close file handle.
+	fclose(f);
+
+	// Close the IO stream.
+	opj_cio_close(cio);
+
+	// Free compression structures.
+	opj_destroy_compress(cinfo);
+
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
-	char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
+	//char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
+	char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
-	transform transform = NEGATIVE_LINEAR;
+	transform transform = LOG;
 
 	// Should the intermediate image be written to a (losslessly compressed) image?
 	// May need to compare lossy & lossless compression.  Eventually, we'll take this
@@ -502,13 +637,11 @@ int main(int argc, char *argv[]) {
 	if (info.naxis == 2) {
 		// Create frame structure.
 		opj_image_t frame;
-		opj_image_comp_t components[1];
-		frame.comps = components;
+		frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t));
 		frame.numcomps = 1;
 
 		// Create component structure.
-		int image_data[info.width*info.height];
-		frame.comps[0].data = image_data;
+		frame.comps[0].data = (int *) malloc(sizeof(int)*info.width*info.height);
 
 		// Create image
 		result = createImageFromFITS(fptr,transform,&frame,1,&info,&status);
@@ -522,6 +655,9 @@ int main(int argc, char *argv[]) {
 		if (writeUncompressed) {
 			// Write uncompressed image to file.
 		}
+
+		free(frame.comps[0].data);
+		free(frame.comps);
 	}
 	else {
 		for (ii=1; ii<=info.depth; ii++) {
@@ -534,13 +670,11 @@ int main(int argc, char *argv[]) {
 
 			// Create frame structure.
 			opj_image_t frame;
-			opj_image_comp_t components[1];
-			frame.comps = components;
+			frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t)*1);
 			frame.numcomps = 1;
 
 			// Create component structure.
-			int image_data[info.width*info.height];
-			frame.comps[0].data = image_data;
+			frame.comps[0].data = (int *) malloc(sizeof(int)*info.width*info.height);
 
 			// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
 			// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
@@ -558,11 +692,7 @@ int main(int argc, char *argv[]) {
 				// Write uncompressed image to file.
 			}
 
-			// Write compressed image to file.  This code is based on that in image_to_j2k.c in the
-			// OpenJPEG library.
-
-			// Permissions for writing output JPEG 2000 file.  Currently write as binary file.
-			char *writePermissions = "wb";
+			// Write compressed image to file.
 
 			// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2.
 			// An additional 20 characters is sufficient for the additional data.
@@ -604,63 +734,18 @@ int main(int argc, char *argv[]) {
 
 			// Eventually, we'll alter the compression parameters at this point.
 
-			// Get compressor handle using the specified codec.
-			opj_cinfo_t *cinfo = opj_create_compress(codec);
-
-			// Event manager object for error/warning/debug messages.
-			opj_event_mgr_t event_mgr;
-
-			// Catch events
-			opj_set_event_mgr((opj_common_ptr)cinfo,&event_mgr,stderr);
-
-			// IO stream for compression.
-			opj_cio_t *cio = NULL;
-
-			// Pointer for file to write to.
-			FILE *f = NULL;
-
-			// Setup encoder with the current frame and the specified parameters.
-			opj_setup_encoder(cinfo,&parameters,&frame);
-
-			// Open IO stream for compression.
-			cio = opj_cio_open((opj_common_ptr)cinfo,NULL,0);
-
-			// Was compression successful?
-			bool compSuccess = opj_encode(cinfo,cio,&frame,NULL);
+			// Perform JPEG 2000 compression.
+			result = createJPEG2000Image(outputFileName,codec,&parameters,&frame);
 
 			// Exit unsuccessfully if compression unsuccessful.
-			if (!compSuccess) {
+			if (result != 0) {
 				fprintf(stderr,"Unable to compress frame %d of file %s.\n",ii,ffname);
-				opj_cio_close(cio);
 				fits_close_file(fptr,&status);
 				exit(EXIT_FAILURE);
 			}
 
-			// Get length of codestream.
-			int codestream_length = cio_tell(cio);
-
-			// Open FILE handle.
-			f = fopen(outputFileName,writePermissions);
-
-			// Check that file was opened successfully.
-			if (!f) {
-				fprintf(stderr,"Unable to open output file: %s for writing.\n",outputFileName);
-				opj_cio_close(cio);
-				fits_close_file(fptr,&status);
-				exit(EXIT_FAILURE);
-			}
-
-			// Write data to file.
-			fwrite(cio->buffer,1,codestream_length,f);
-
-			// Close file handle.
-			fclose(f);
-
-			// Close the IO stream.
-			opj_cio_close(cio);
-
-			// Free compression structures.
-			opj_destroy_compress(cinfo);
+			free(frame.comps[0].data);
+			free(frame.comps);
 		}
 	}
 
