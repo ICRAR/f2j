@@ -387,7 +387,7 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  */
 int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, int frame, cube_info *info, int *status) {
 	// Check parameters.
-	if (imageStruct == NULL || info == NULL || status == NULL) {
+	if (fptr == NULL || imageStruct == NULL || info == NULL || status == NULL) {
 		fprintf(stderr,"Parameters to createImageFromFITS cannot be null.\n");
 	}
 
@@ -599,10 +599,128 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 	return 0;
 }
 
+/*
+ * Function to read a frame from a FITS data cube, create a grayscale image from it, then encode it as a JPEG 2000
+ * image using lossy or lossless compression.
+ *
+ * The image is compressed using the parameters defined in parameters.  If writeUncompressed is true, a losslessly
+ * compressed image will also be created.  If the parameters information passed to the function also describes lossless
+ * compression, the two images will be the same, making the duplicate image redundant.  It is the responsibility of
+ * client code to check this.
+ *
+ * This function performs basic checking that the parameters are not null, but in general, it is up to the client
+ * code to ensure that parameters are valid and meaningful.
+ *
+ * info - Reference to cube_info structure containing information on the data cube.
+ * fptr - Pointer to a fitsfile structure.  Assumed to be initialised by this point.
+ * transform - transform to perform when converting frame to image.
+ * frameNumber - Number of frame in 3D data cube.  Arbitrary for 2D images.
+ * status - Reference to status integer for CFITSIO.  Assumed to be initialised to 0 by this point.
+ * outFileStub - File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2 and STUB_LOSSLESS.jp2
+ * (if writeUncompressed is true).
+ * writeUncompressed - Should a copy of the image be encoded using lossless compression.  May want to
+ * do this to compare lossless VS lossy compression on an image.
+ * parameters - Compression parameters.
+ *
+ * Returns 0 if all operations were successful, 1 otherwise.
+ */
+int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int frameNumber, int *status, char *outFileStub,
+		bool writeUncompressed, opj_cparameters_t *parameters) {
+	// Initialise an OpenJPEG image structure with a single component with data storage
+	// initialised to the width and height of the image.
+
+	// Create frame structure.
+	opj_image_t frame;
+	frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t));
+	frame.numcomps = 1;
+
+	// Create component structure.
+	frame.comps[0].data = (int *) malloc(sizeof(int)*info->width*info->height);
+
+	// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
+	// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
+	// image data at this point.
+
+	// Create image
+	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,info,status);
+
+	if (result != 0) {
+		fprintf(stderr,"Unable to create image from frame %d of FITS file.\n",frameNumber);
+		free(frame.comps[0].data);
+		free(frame.comps);
+		return 1;
+	}
+
+	int stublen = strlen(outFileStub);
+
+	if (writeUncompressed) {
+		// Write uncompressed image to file.
+
+		// Lossless compression codec.
+		OPJ_CODEC_FORMAT losslessCodec = CODEC_JP2;
+
+		// Lossless compression parameters.
+		opj_cparameters_t lossless;
+
+		// Initialise to default values.
+		opj_set_default_encoder_parameters(&lossless);
+
+		// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
+		lossless.tcp_mct = 0;
+
+		if (lossless.tcp_numlayers == 0) {
+			lossless.tcp_rates[0] = 0;
+			lossless.tcp_numlayers++;
+			lossless.cp_disto_alloc = 1;
+		}
+
+		// Create filename string for losslessly compressed file.
+		// Name is STUB_LOSSLESS.jp2
+		char losslessFile[stublen + 14];
+
+		sprintf(losslessFile,"%s_LOSSLESS.jp2",outFileStub);
+
+		// Perform JPEG 2000 compression.
+		result = createJPEG2000Image(losslessFile,losslessCodec,&lossless,&frame);
+
+		// Exit unsuccessfully if compression unsuccessful.
+		if (result != 0) {
+			fprintf(stderr,"Unable to compress frame %d of FITS file.\n",frameNumber);
+			free(frame.comps[0].data);
+			free(frame.comps);
+			return 1;
+		}
+	}
+
+	// Write compressed image to file using specified compression parameters.
+
+	// Get file name string.
+	// Name is STUB.jp2
+	char compressedFile[stublen + 5];
+	sprintf(compressedFile,"%s.jp2",outFileStub);
+
+	// Perform JPEG 2000 compression.
+	result = createJPEG2000Image(compressedFile,parameters->cod_format,parameters,&frame);
+
+	// Exit unsuccessfully if compression unsuccessful.
+	if (result != 0) {
+		fprintf(stderr,"Unable to compress frame %d of FITS file.\n",frameNumber);
+		free(frame.comps[0].data);
+		free(frame.comps);
+		return 1;
+	}
+
+	free(frame.comps[0].data);
+	free(frame.comps);
+
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
 	//char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
 	char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
+	//char *ffname = "//Users//acannon//Downloads//FITS//SST2cont.image.restored.fits";
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
 	transform transform = LOG;
@@ -632,110 +750,87 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	// Structure to hold compression parameters.
+	opj_cparameters_t parameters;
+
+	// Initialise to default values.
+	opj_set_default_encoder_parameters(&parameters);
+
+	// Codec format to use.  Eventually, probably take this as a user parameter.
+	// Currently set to JPEG2000 file format.  Possible values available at:
+	// http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf
+	parameters.cod_format = CODEC_JP2;
+
+	// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
+	parameters.tcp_mct = 0;
+
+	if (parameters.tcp_numlayers == 0) {
+		parameters.tcp_rates[0] = 0;
+		parameters.tcp_numlayers++;
+		parameters.cp_disto_alloc = 1;
+	}
+
+	// Eventually, we'll alter the compression parameters at this point.
+
+	// Input file length
+	int ilen = strlen(ffname);
+
 	// Read each frame of the FITS file and compress it to JPEG 2000.
 	// 2 dimensional image case
 	if (info.naxis == 2) {
-		// Create frame structure.
-		opj_image_t frame;
-		frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t));
-		frame.numcomps = 1;
+		// Output file will be input file name (minus FITS extension) + .JP2.
+		// An additional 10 characters is sufficient for the additional data.
+		char outFileStub[ilen+10];
 
-		// Create component structure.
-		frame.comps[0].data = (int *) malloc(sizeof(int)*info.width*info.height);
+		// Copy input file name to intermediary string.
+		strcpy(outFileStub,ffname);
 
-		// Create image
-		result = createImageFromFITS(fptr,transform,&frame,1,&info,&status);
+		// Get the last dot
+		char *dotPosition = strrchr(outFileStub,'.');
 
+		// Terminate the string at this point.
+		*dotPosition = '\0';
+
+		// Setup and perform compression.
+		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,&parameters);
+
+		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
-			fprintf(stderr,"Unable to create image from FITS file %s.\n",ffname);
+			fprintf(stderr,"Unable to compress frame %d of file %s.\n",ii,ffname);
 			fits_close_file(fptr,&status);
 			exit(EXIT_FAILURE);
 		}
-
-		if (writeUncompressed) {
-			// Write uncompressed image to file.
-		}
-
-		free(frame.comps[0].data);
-		free(frame.comps);
 	}
 	else {
 		for (ii=1; ii<=info.depth; ii++) {
-			// Initialise an OpenJPEG image structure with a single component with data storage
-			// initialised to the width and height of the image.
+			// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
+			// image structure is allocatged as part of the setupCompression function.
 			// If this code was being run in serial, we could save time by initialising the image structure
 			// outside of the loop, to prevent a new memory allocation being performed every time the loop
 			// ran.  However, if this code is to be parallelised, we want a separate memory allocation for
 			// each frame of the image, to allow this process to be run in parallel.
 
-			// Create frame structure.
-			opj_image_t frame;
-			frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t)*1);
-			frame.numcomps = 1;
-
-			// Create component structure.
-			frame.comps[0].data = (int *) malloc(sizeof(int)*info.width*info.height);
-
-			// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
-			// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
-			// image data at this point.
-
-			// Create image
-			result = createImageFromFITS(fptr,transform,&frame,ii,&info,&status);
-
-			if (result != 0) {
-				fprintf(stderr,"Unable to create image from frame %d of FITS file %s.\n",ii,ffname);
-				exit(EXIT_FAILURE);
-			}
-
-			if (writeUncompressed) {
-				// Write uncompressed image to file.
-			}
-
-			// Write compressed image to file.
-
 			// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2.
 			// An additional 20 characters is sufficient for the additional data.
-			int oflen = strlen(ffname) + 20;
+			int oflen = ilen + 20;
 
-			char outputFileName[oflen];
-			char fileStub[oflen];
+			char intermediate[oflen];
+			char outFileStub[oflen];
 
-			// Copy input file name to intermediary stub.
-			strcpy(fileStub,ffname);
+			// Copy input file name to intermediary string.
+			strcpy(intermediate,ffname);
 
 			// Get the last dot
-			char *dotPosition = strrchr(fileStub,'.');
+			char *dotPosition = strrchr(intermediate,'.');
 
 			// Overwrite it with an underscore.
 			*dotPosition = '_';
 			*(dotPosition+1) = '\0';
 
-			sprintf(outputFileName,"%s%d.jp2",fileStub,ii);
+			sprintf(outFileStub,"%s%d",intermediate,ii);
 
-			// Codec format to use.  Eventually, probably take this as a user parameter.
-			// Currently set to JPEG2000 file format.  Possible values available at:
-			// http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf
-			OPJ_CODEC_FORMAT codec = CODEC_JP2;
-
-			// Structure to hold compression parameters.
-			opj_cparameters_t parameters;
-			// Initialise to default values.
-			opj_set_default_encoder_parameters(&parameters);
-
-			// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
-			parameters.tcp_mct = 0;
-
-			if (parameters.tcp_numlayers == 0) {
-				parameters.tcp_rates[0] = 0;
-				parameters.tcp_numlayers++;
-				parameters.cp_disto_alloc = 1;
-			}
-
-			// Eventually, we'll alter the compression parameters at this point.
-
-			// Perform JPEG 2000 compression.
-			result = createJPEG2000Image(outputFileName,codec,&parameters,&frame);
+			// Setup and perform compression.
+			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,&parameters);
 
 			// Exit unsuccessfully if compression unsuccessful.
 			if (result != 0) {
@@ -743,9 +838,6 @@ int main(int argc, char *argv[]) {
 				fits_close_file(fptr,&status);
 				exit(EXIT_FAILURE);
 			}
-
-			free(frame.comps[0].data);
-			free(frame.comps);
 		}
 	}
 
