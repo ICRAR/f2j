@@ -462,12 +462,22 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// 32 bit floating point case
 	else if (info->bitpix == FLOAT_IMG) {
+		// Do we need to find the max/min values?
+		bool findMinMax = false;
+
 		// Get min/max data values
 		double datamax;
 		double datamin;
 
 		fits_read_key(fptr,TDOUBLE,"DATAMAX",&datamax,NULL,status);
 		fits_read_key(fptr,TDOUBLE,"DATAMIN",&datamin,NULL,status);
+
+		// Check if the DATAMAX/DATAMIN keywords were found in the header.  If they weren't,
+		// we'll need to find them ourselves.
+		if (*status != 0) {
+			*status = 0;
+			findMinMax = true;
+		}
 
 		double *imageArray = (double *) malloc(sizeof(double) * info->width * info->height);
 
@@ -481,6 +491,24 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		if (*status != 0) {
 			fprintf(stderr,"Error reading frame %d of image.\n",frame);
 			return 1;
+		}
+
+		// Need to find min/max values if they weren't defined in the header.
+		if (findMinMax) {
+			// Small assumption here: that we have at least 1 pixel - does not seem unreasonable!
+			datamax = imageArray[0];
+			datamin = imageArray[0];
+
+			// Search through array to find max/min values.
+			for (ii=1; ii<info->width*info->height; ii++) {
+				if (imageArray[ii] > datamax) {
+					datamax = imageArray[ii];
+				}
+
+				if (imageArray[ii] < datamin) {
+					datamin = imageArray[ii];
+				}
+			}
 		}
 
 		int transformResult = floatCustomTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax);
@@ -719,8 +747,8 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 int main(int argc, char *argv[]) {
 	// FITS file to read.  Eventually, we will take this as a parameter.
 	//char *ffname = "//Users//acannon//Downloads//FITS//H100_abcde_luther_chop.fits";
-	char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
-	//char *ffname = "//Users//acannon//Downloads//FITS//SST2cont.image.restored.fits";
+	//char *ffname = "//Users//acannon//Downloads//FITS//00015-00390Z.fits";
+	char *ffname = "//Users//acannon//Downloads//FITS//SST2cont.image.restored.fits";
 
 	// Transform (if any) to perform on raw data.  Eventually, we'll take this as a parameter.
 	transform transform = LOG;
