@@ -116,7 +116,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 	// Loop variables
 	int ii;
 
-	if (transform == LINEAR) {
+	if (transform == RAW) {
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[ii] + 32768;
@@ -124,7 +124,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 
 		return 0;
 	}
-	else if (transform == NEGATIVE_LINEAR) {
+	else if (transform == NEGATIVE_RAW) {
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 32767 - (int) rawData[ii];
@@ -198,32 +198,12 @@ int sByteImgTransform(char *rawData, int *imageData, transform transform, int le
  * with grayscale image intensities.
  * transform - transform to perform on each datum of rawData to get imageData.
  * len - length of rawData & imageData arrays.
+ * datamin - minimum value in rawData.
+ * datamax - maximum value in rawData.
  *
  * Returns 0 if the transform could be performed successfully, 1 otherwise.
  */
-int doubleImgTransform(double *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
-	return 1;
-}
-
-/*
- * Function for transforming a raw array of data from a FITS file (in the form of
- * a float array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
- *
- * rawData - float array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
- * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
- *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
- */
-int floatImgTransform(float *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
-	return 1;
-}
-
-int floatCustomTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
+int floatDoubleTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays in floatCustomTransform cannot be null or empty.\n");
 		return 1;
@@ -468,8 +448,10 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// 16 bit signed integer case
 	else if (info->bitpix == SHORT_IMG) {
-		// Turn off scaling for this data stream.
-		fits_set_bscale(fptr,1.0,0.0,status);
+		// Turn off scaling for this data stream if using raw data scales.
+		if (transform == RAW || transform == NEGATIVE_RAW) {
+			fits_set_bscale(fptr,1.0,0.0,status);
+		}
 
 		READ_AND_TRANSFORM(short,TSHORT,shortImgTransform);
 	}
@@ -481,8 +463,8 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	else if (info->bitpix == LONGLONG_IMG) {
 		READ_AND_TRANSFORM(long long int,TLONGLONG,longLongImgTransform);
 	}
-	// 32 bit floating point case
-	else if (info->bitpix == FLOAT_IMG) {
+	// 32/64 bit floating point case
+	else if (info->bitpix == FLOAT_IMG || info->bitpix == DOUBLE_IMG) {
 		// Do we need to find the max/min values?
 		bool findMinMax = false;
 
@@ -532,7 +514,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			}
 		}
 
-		int transformResult = floatCustomTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax);
+		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax);
 
 		if (transformResult != 0) {
 			fprintf(stderr,"Specified transform could not be performed.\n");
@@ -540,12 +522,6 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		}
 
 		free(imageArray);
-
-		//READ_AND_TRANSFORM(float,TFLOAT,floatImgTransform);
-	}
-	// 64 bit floating point case
-	else if (info->bitpix == DOUBLE_IMG) {
-		READ_AND_TRANSFORM(double,TDOUBLE,doubleImgTransform);
 	}
 	// Signed char (8 bit integer) case
 	else if (info->bitpix == SBYTE_IMG) {
