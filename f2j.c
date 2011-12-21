@@ -670,7 +670,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * transform - transform to perform when converting frame to image.
  * frameNumber - Number of frame in 3D data cube.  Arbitrary for 2D images.
  * status - Reference to status integer for CFITSIO.  Assumed to be initialised to 0 by this point.
- * outFileStub - File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2 and STUB_LOSSLESS.jp2
+ * outFileStub - File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2/j2k and STUB_LOSSLESS.jp2/j2k
  * (if writeUncompressed is true).
  * writeUncompressed - Should a copy of the image be encoded using lossless compression.  May want to
  * do this to compare lossless VS lossy compression on an image.
@@ -735,8 +735,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 		}
 
 		// Create filename string for losslessly compressed file.
-		// Name is STUB_LOSSLESS.jp2
+		// Name is STUB_LOSSLESS.jp2/j2k
 		char losslessFile[stublen + 14];
+
 		sprintf(losslessFile,"%s_LOSSLESS.jp2",outFileStub);
 
 		// Perform JPEG 2000 compression.
@@ -756,7 +757,13 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 	// Get file name string.
 	// Name is STUB.jp2
 	char compressedFile[stublen + 5];
-	sprintf(compressedFile,"%s.jp2",outFileStub);
+
+	if (parameters->cod_format == CODEC_JP2) {
+		sprintf(compressedFile,"%s.jp2",outFileStub);
+	}
+	else {
+		sprintf(compressedFile,"%s.j2k",outFileStub);
+	}
 
 	// Perform JPEG 2000 compression.
 	result = createJPEG2000Image(compressedFile,parameters->cod_format,parameters,&frame);
@@ -834,7 +841,7 @@ int main(int argc, char *argv[]) {
 	// Read each frame of the FITS file and compress it to JPEG 2000.
 	// 2 dimensional image case
 	if (info.naxis == 2) {
-		// Output file will be input file name (minus FITS extension) + .JP2.
+		// Output file will be input file name (minus FITS extension) + .JP2/J2K.
 		// An additional 10 characters is sufficient for the additional data.
 		char outFileStub[ilen+10];
 
