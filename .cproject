@@ -26,6 +26,7 @@
 								<option id="gnu.c.compiler.option.debugging.level.1841735060" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.2060586789" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/CFITSIO/cfitsio"/>
+									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/OpenJPEG/common"/>
 									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/OpenJPEG/libopenjpeg"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.297079301" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>

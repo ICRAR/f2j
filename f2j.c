@@ -38,6 +38,13 @@
 }
 
 /*
+ * Displays usage information for f2j.
+ */
+void displayHelp() {
+	exit(EXIT_FAILURE);
+}
+
+/*
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a long long int array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *

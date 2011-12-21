@@ -50,6 +50,9 @@
 #include "fitsio.h"
 #include "openjpeg.h"
 
+// External function declarations.
+extern void displayHelp();
+
 // Structure for defining essential properties of a FITS datacube.
 typedef struct {
 	long width;
