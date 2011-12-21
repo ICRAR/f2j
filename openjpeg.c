@@ -84,8 +84,6 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed) {
 	int i, j,totlen;
 	option_t long_option[]={
-		{"cinema2K",REQ_ARG, NULL ,'w'},
-		{"cinema4K",NO_ARG, NULL ,'y'},
 		{"ImgDir",REQ_ARG, NULL ,'z'},
 		{"TP",REQ_ARG, NULL ,'v'},
 		{"SOP",NO_ARG, NULL ,'S'},
@@ -471,35 +469,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 
 				/* ------------------------------------------------------ */
 
-			case 'w':			/* Digital Cinema 2K profile compliance*/
-			{
-				int fps=0;
-				sscanf(optarg,"%d",&fps);
-				if(fps == 24){
-					parameters->cp_cinema = CINEMA2K_24;
-				}else if(fps == 48 ){
-					parameters->cp_cinema = CINEMA2K_48;
-				}else {
-					fprintf(stderr,"Incorrect value!! must be 24 or 48\n");
-					return 1;
-				}
-				fprintf(stdout,"CINEMA 2K compliant codestream\n");
-				parameters->cp_rsiz = CINEMA2K;
-
-			}
-			break;
-
-				/* ------------------------------------------------------ */
-
-			case 'y':			/* Digital Cinema 4K profile compliance*/
-			{
-				parameters->cp_cinema = CINEMA4K_24;
-				fprintf(stdout,"CINEMA 4K compliant codestream\n");
-				parameters->cp_rsiz = CINEMA4K;
-			}
-			break;
-
-				/* ------------------------------------------------------ */
+			// Removed Cinema 2K & 4K - not needed.
 
 /* UniPG>> */
 #ifdef USE_JPWL
