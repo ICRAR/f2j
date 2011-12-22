@@ -10,18 +10,21 @@
  *
  * Note that this program assumes that int/float/etc widths are those on the
  * x86/x86_64 platforms.
- *
  */
 
 #include "f2j.h"
 
-// Macro to perform the FITS read operation and then a specified transformation on
-// data from a FITS file.
-//
-// type is a primitive type, such as float or double
-// fitstype is the constant, such as TFLOAT, corresponding to type
-// transformFunction is the function used to transform raw input data from the FITS file
-// into output data.
+/**
+ * Macro to perform the FITS read operation and then a specified transformation on
+ * data from a FITS file.
+ *
+ * @param type primitive type, such as float or double, specifying the type of the array
+ * which will contain data read from the FITS file.
+ * @param fitstype CFITSIO constant, such as TFLOAT, specifying the type of the data
+ * array that will contain the data read from the FITS file.
+ * @param transformFunction Name of the  function used to transform raw input data from the
+ * FITS file into output data.
+ */
 #define READ_AND_TRANSFORM(type,fitstype,transformFunction) { \
 	type *imageArray = (type *) malloc(sizeof(type)*info->width*info->height);\
 	\
