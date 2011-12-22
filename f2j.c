@@ -31,7 +31,7 @@
 	fits_read_pix(fptr,fitstype,fpixel,info->width*info->height,NULL,imageArray,NULL,status);\
 	\
 	if (*status != 0) {\
-		fprintf(stderr,"Error reading frame %d of image.\n",frame);\
+		fprintf(stderr,"Error reading frame %ld of image.\n",frame);\
 		return 1;\
 	}\
 	int transformResult = transformFunction(imageArray,imageStruct->comps[0].data,transform,info->width*info->height);\
@@ -62,7 +62,7 @@ void displayHelp() {
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int longLongImgTransform(long long int *rawData, int *imageData, transform transform, int len) {
+int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -79,7 +79,7 @@ int longLongImgTransform(long long int *rawData, int *imageData, transform trans
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int intImgTransform(int *rawData, int *imageData, transform transform, int len) {
+int intImgTransform(int *rawData, int *imageData, transform transform, size_t len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -96,7 +96,7 @@ int intImgTransform(int *rawData, int *imageData, transform transform, int len) 
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, int len) {
+int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -161,7 +161,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, int len) {
+int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to uShortImgTransform cannot be null or empty.\n");
 		return 1;
@@ -298,14 +298,14 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int floatDoubleTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
+int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays in floatDoubleTransform cannot be null or empty.\n");
 		return 1;
 	}
 
 	// Loop variables
-	int ii;
+	size_t ii;
 
 	if (transform == LOG || transform == NEGATIVE_LOG) {
 		double absMin = datamin;
@@ -485,7 +485,7 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  *
  * @return 0 if there were no errors, 1 otherwise.
  */
-int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, int frame, cube_info *info, int *status) {
+int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, cube_info *info, int *status) {
 	// Check parameters.
 	if (fptr == NULL || imageStruct == NULL || info == NULL || status == NULL) {
 		fprintf(stderr,"Parameters to createImageFromFITS cannot be null.\n");
@@ -493,6 +493,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 
 	// Loop variables.
 	int ii;
+	size_t jj;
 
 	// Check we have a valid frame if we are dealing with a data cube.  If we are dealing with a 2D FITS file,
 	// the frame parameter is ignored.
@@ -600,7 +601,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		fits_read_pix(fptr,TDOUBLE,fpixel,info->width*info->height,NULL,imageArray,NULL,status);
 
 		if (*status != 0) {
-			fprintf(stderr,"Error reading frame %d of image.\n",frame);
+			fprintf(stderr,"Error reading frame %ld of image.\n",frame);
 			return 1;
 		}
 
@@ -611,13 +612,13 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			datamin = imageArray[0];
 
 			// Search through array to find max/min values.
-			for (ii=1; ii<info->width*info->height; ii++) {
-				if (imageArray[ii] > datamax) {
-					datamax = imageArray[ii];
+			for (jj=1; jj<info->width*info->height; jj++) {
+				if (imageArray[jj] > datamax) {
+					datamax = imageArray[jj];
 				}
 
-				if (imageArray[ii] < datamin) {
-					datamin = imageArray[ii];
+				if (imageArray[jj] < datamin) {
+					datamin = imageArray[jj];
 				}
 			}
 		}
@@ -642,7 +643,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		imageStruct->comps[0].bpp = 8;
 		imageStruct->comps[0].prec = 8;
 
-		READ_AND_TRANSFORM(char,TSBYTE,sByteImgTransform);
+		READ_AND_TRANSFORM(signed char,TSBYTE,sByteImgTransform);
 	}
 	// Unsigned short (16 bit integer) case
 	else if (info->bitpix == USHORT_IMG) {
@@ -777,7 +778,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
-int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int frameNumber, int *status, char *outFileStub,
+int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, int *status, char *outFileStub,
 		bool writeUncompressed, opj_cparameters_t *parameters) {
 	// Check parameters
 	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL) {
@@ -804,13 +805,13 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,info,status);
 
 	if (result != 0) {
-		fprintf(stderr,"Unable to create image from frame %d of FITS file.\n",frameNumber);
+		fprintf(stderr,"Unable to create image from frame %ld of FITS file.\n",frameNumber);
 		free(frame.comps[0].data);
 		free(frame.comps);
 		return 1;
 	}
 
-	int stublen = strlen(outFileStub);
+	size_t stublen = strlen(outFileStub);
 
 	if (writeUncompressed) {
 		// Write uncompressed image to file.
@@ -844,7 +845,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
-			fprintf(stderr,"Unable to compress frame %d of FITS file.\n",frameNumber);
+			fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
 			free(frame.comps[0].data);
 			free(frame.comps);
 			return 1;
@@ -869,7 +870,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 
 	// Exit unsuccessfully if compression unsuccessful.
 	if (result != 0) {
-		fprintf(stderr,"Unable to compress frame %d of FITS file.\n",frameNumber);
+		fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
 		free(frame.comps[0].data);
 		free(frame.comps);
 		return 1;
@@ -920,7 +921,7 @@ int main(int argc, char *argv[]) {
 	int status = 0;
 
 	// Loop variables
-	int ii;
+	long ii;
 
 	// Information on the data cube
 	cube_info info;
@@ -938,7 +939,7 @@ int main(int argc, char *argv[]) {
 	// Eventually, we'll alter the compression parameters at this point.
 
 	// Input file length
-	int ilen = strlen(ffname);
+	size_t ilen = strlen(ffname);
 
 	// Read each frame of the FITS file and compress it to JPEG 2000.
 	// 2 dimensional image case
@@ -961,7 +962,7 @@ int main(int argc, char *argv[]) {
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
-			fprintf(stderr,"Unable to compress frame %d of file %s.\n",ii,ffname);
+			fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
 			fits_close_file(fptr,&status);
 			exit(EXIT_FAILURE);
 		}
@@ -977,7 +978,7 @@ int main(int argc, char *argv[]) {
 
 			// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2.
 			// An additional 20 characters is sufficient for the additional data.
-			int oflen = ilen + 20;
+			size_t oflen = ilen + 20;
 
 			char intermediate[oflen];
 			char outFileStub[oflen];
@@ -992,14 +993,14 @@ int main(int argc, char *argv[]) {
 			*dotPosition = '_';
 			*(dotPosition+1) = '\0';
 
-			sprintf(outFileStub,"%s%d",intermediate,ii);
+			sprintf(outFileStub,"%s%ld",intermediate,ii);
 
 			// Setup and perform compression.
 			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,&parameters);
 
 			// Exit unsuccessfully if compression unsuccessful.
 			if (result != 0) {
-				fprintf(stderr,"Unable to compress frame %d of file %s.\n",ii,ffname);
+				fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
 				fits_close_file(fptr,&status);
 				exit(EXIT_FAILURE);
 			}
