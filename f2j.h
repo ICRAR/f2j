@@ -5,26 +5,29 @@
  *
  * @brief Header file for f2j.
  *
- * Defines global functions and data structures.  Includes library
+ * Defines global functions and data structures.  Includes necessary library
  * header files.
- */
-
-// This program uses code from the OpenJPEG library, which carries the following BSD license.
-/*
- * Copyright (c) 2002-2007, Communications and Remote Sensing Laboratory, Universite catholique de Louvain (UCL), Belgium
- * Copyright (c) 2002-2007, Professor Benoit Macq
- * Copyright (c) 2001-2003, David Janssens
- * Copyright (c) 2002-2003, Yannick Verschueren
- * Copyright (c) 2003-2007, Francois-Olivier Devaux and Antonin Descampe
- * Copyright (c) 2005, Herve Drolon, FreeImage Team
- * Copyright (c) 2006-2007, Parvatha Elangovan
+ *
+ * @section LICENSE
+ *
+ * <b>OpenJPEG</b>
+ *
+ * This program uses code from the <a href="http://www.openjpeg.org/">OpenJPEG library</a>, which carries the following BSD license.
+ *
+ * Copyright (c) 2002-2007, Communications and Remote Sensing Laboratory, Universite catholique de Louvain (UCL), Belgium<br/>
+ * Copyright (c) 2002-2007, Professor Benoit Macq<br/>
+ * Copyright (c) 2001-2003, David Janssens<br/>
+ * Copyright (c) 2002-2003, Yannick Verschueren<br/>
+ * Copyright (c) 2003-2007, Francois-Olivier Devaux and Antonin Descampe<br/>
+ * Copyright (c) 2005, Herve Drolon, FreeImage Team<br/>
+ * Copyright (c) 2006-2007, Parvatha Elangovan<br/>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
- * are met:
+ * are met:<br/>
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.<br/>
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -40,11 +43,12 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- */
-
-// This program uses the CFITSIO library, which is distributed under the following
-// license.
-/**
+ *
+ * <b>CFITSIO</b>
+ *
+ * The <a href="http://heasarc.gsfc.nasa.gov/fitsio/">CFITSIO library</a> is also
+ * used by this program, which carries the following license.
+ *
  * Copyright (Unpublished--all rights reserved under the copyright laws of
  * the United States), U.S. Government as represented by the Administrator
  * of the National Aeronautics and Space Administration.  No copyright is
