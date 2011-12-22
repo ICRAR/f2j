@@ -91,10 +91,15 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @param writeUncompressed Reference to boolean specifying if a lossless version of image
  * should be written.  This will be set to true if the L parameter is present on the command
  * line.
+ * @param startFrame First frame of data cube to read.  Ignored for 2D images.  Will only be
+ * modified if the x parameter is present.  If only x is speccified (and not y), the single x
+ * value will be interpreted as a single frame to read.
+ * @param endFrame Last frame of data cube to read.  Ignored for 2D images.  Will only be
+ * modified if the y parameter is present.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
-int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed) {
+int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed, long *startFrame, long *endFrame) {
 	int i, j,totlen;
 	option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -107,7 +112,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:"
+	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:x:y:"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -127,6 +132,22 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case 'L':
 			{
 				*writeUncompressed = true;
+			}
+			break;
+
+			/* What is the first frame of the data cube to read? */
+			case 'x':
+			{
+				char *end;
+				*startFrame = strtol(optarg,&end,10);
+			}
+			break;
+
+			/* What is the last frame of the data cube to read? */
+			case 'y':
+			{
+				char *end;
+				*endFrame = strtol(optarg,&end,10);
 			}
 			break;
 

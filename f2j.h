@@ -117,6 +117,6 @@ typedef enum {
 // f2j.c
 extern void displayHelp();
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *);
 
 #endif /* F2J_H_ */

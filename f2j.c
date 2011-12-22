@@ -1039,8 +1039,14 @@ int main(int argc, char *argv[]) {
 	// Initialise to default values.
 	opj_set_default_encoder_parameters(&parameters);
 
+	// Start frame - first frame of 3D data cube to read.  Ignored for 2D images.
+	long startFrame = -1;
+
+	// End frame - last frame of 3D data cube to read.  Ignored for 2D images.
+	long endFrame = -1;
+
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -1107,7 +1113,21 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	else {
-		for (ii=1; ii<=info.depth; ii++) {
+		// Valid start and end frames specified
+		if (1<=startFrame && startFrame<=endFrame && endFrame<=info.depth) {
+			// Do nothing, parameters already set.
+		}
+		// Valid start frame only - just read this one
+		else if (1<=startFrame && startFrame<=info.depth) {
+			endFrame = startFrame;
+		}
+		// If both specified start and end frames are invalid, read all frames.
+		else {
+			startFrame = 1;
+			endFrame = info.depth;
+		}
+
+		for (ii=startFrame; ii<=endFrame; ii++) {
 			// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
 			// image structure is allocatged as part of the setupCompression function.
 			// If this code was being run in serial, we could save time by initialising the image structure
