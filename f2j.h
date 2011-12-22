@@ -1,10 +1,12 @@
-/*
- * f2j.h
+/**
+ * @file f2j.h
+ * @author Andrew Cannon
+ * @date December 2011
  *
- * Header file for FITS -> JPEG 2000 converter.
+ * @brief Header file for f2j.
  *
- *  Created on: Dec 19, 2011
- *      Author: acannon
+ * Defines global functions and data structures.  Includes library
+ * header files.
  */
 
 // This file uses code from the OpenJPEG library, which carries the following license.
@@ -50,20 +52,31 @@
 #include "fitsio.h"
 #include "openjpeg.h"
 
-// Structure for defining essential properties of a FITS datacube.
+/**
+ * Structure for defining essential properties of a FITS datacube.
+ */
 typedef struct {
-	long width;
-	long height;
-	long depth;
-	int naxis; // Number of dimensions of the data cube.
-	int bitpix; // Image data type.
+	long width /** Image width. */;
+	long height /** Image height. */;
+	long depth /** Image depth.  Arbitrary for 2D images. */;
+	int naxis /** Number of dimensions of the data cube. */;
+	int bitpix /** Image data type.  Same as BITPIX in CFITSIO. */;
 } cube_info;
 
-// Enumerated type defining the transformations that may be performed
-// on raw FITS data to convert each datum into a 16 bit grayscale
-// (integer) intensity.
+/**
+ * Enumerated type defining the transformations that may be performed
+ * on raw FITS data to convert each datum into a 16 bit grayscale
+ * (integer) intensity.
+ *
+ * Not all transforms will be defined for all FITS image types.
+ */
 typedef enum {
-	LOG,NEGATIVE_LOG,LINEAR,NEGATIVE_LINEAR,RAW,NEGATIVE_RAW
+	LOG /** Logarithmic scale. */,
+	NEGATIVE_LOG /** Inverse image from logarithmic scale. */,
+	LINEAR /** Linear scale. */,
+	NEGATIVE_LINEAR /** Inverse image from linear scale. */,
+	RAW /** Convert raw values to image intensities.  Only defined for FITS files containing short/byte data.  If raw daa is signed, it will be shifted to be unsigned.  */,
+	NEGATIVE_RAW /** Inverse image from raw transform. */
 } transform;
 
 // External function declarations.

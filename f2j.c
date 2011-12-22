@@ -1,13 +1,16 @@
-/*
- * f2j.c
+/**
+ * @file f2j.c
+ * @author Andrew Cannon
+ * @date December 2011
  *
- * Read FITS files and convert them into JPEG 2000.
+ * @brief Read FITS files and convert them into JPEG 2000.
+ *
+ * This file contains most of the custom source code for this
+ * program.
  *
  * Note that this program assumes that int/float/etc widths are those on the
  * x86/x86_64 platforms.
  *
- *  Created on: Dec 9, 2011
- *      Author: Andrew Cannon
  */
 
 #include "f2j.h"
@@ -37,75 +40,78 @@
 	free(imageArray);\
 }
 
-/*
- * Displays usage information for f2j.
+/**
+ * Displays usage information for f2j.  Exits with EXIT_FAILURE when finished.
  */
 void displayHelp() {
 	exit(EXIT_FAILURE);
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a long long int array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - long long int array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData long long int array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len - length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int longLongImgTransform(long long int *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * an int array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - int array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData int array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int intImgTransform(int *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * an unsigned int array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - unsigned int array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData unsigned int array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a short array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - short array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
- * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * Very basic parameter checking is performed, but the responsibility for checking
+ * parameters are valid and meaningful is largely left to the calling function.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @param rawData short array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale image intensities.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
+ *
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int shortImgTransform(short *rawData, int *imageData, transform transform, int len) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -138,70 +144,73 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 	}
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * an unsigned short array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - unsigned short array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData unsigned short array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * an unsigned char array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - unsigned char array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData unsigned char array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a char array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - char array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
+ * @param rawData char array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int sByteImgTransform(char *rawData, int *imageData, transform transform, int len) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
 
-/*
+/**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a double array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * rawData - double array read from a FITS file using CFITSIO
- * imageData - int array, assumed to be the same length as rawData, to be populated
- * with grayscale image intensities.
- * transform - transform to perform on each datum of rawData to get imageData.
- * len - length of rawData & imageData arrays.
- * datamin - minimum value in rawData.
- * datamax - maximum value in rawData.
+ * Very basic parameter checking is performed, but the responsibility for checking that
+ * parameters are valid and meaningful is largely left to the calling function.
  *
- * Returns 0 if the transform could be performed successfully, 1 otherwise.
+ * @param rawData double array read from a FITS file using CFITSIO
+ * @param imageData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale image intensities.
+ * @param transform transform to perform on each datum of rawData to get imageData.
+ * @param len length of rawData & imageData arrays.
+ * @param datamin minimum value in rawData.
+ * @param datamax maximum value in rawData.
+ *
+ * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int floatDoubleTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -277,19 +286,22 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, i
 	return 1;
 }
 
-/*
+/**
  * Function to open a FITS data file, check that it is a valid data cube that this program
  * may interpret and record some basic information about it.
  *
- * ffname: FITS file to open.
- * fptr: Pointer to a pointer to a fitsfile datatype for CFITSIO. Will be populated by this
+ * Basic parameter checking is performed, but the responsibility for checking that parameters
+ * are valid and meaningful is largely left to the client code.
+ *
+ * @param ffname FITS file to open.
+ * @param fptr Pointer to a pointer to a fitsfile datatype for CFITSIO. Will be populated by this
  * program, allowing it to be used in subsequent IO operations.
- * info: Data structure containing information about the data cube, including width, length
+ * @param info Data structure containing information about the data cube, including width, length
  * and height.
- * status: Reference to status variable used by CFITSIO.  Must have been initialised to
+ * @param status Reference to status variable used by CFITSIO.  Must have been initialised to
  * 0 by the time that this function is called.
  *
- * Returns 0 if the read was successful or 1 otherwise.
+ * @return 0 if the read was successful or 1 otherwise.
  */
 int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 	// Check parameters.
@@ -367,24 +379,24 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 	return 0;
 }
 
-/*
+/**
  * Function to read a FITS file and create an OpenJPEG opj_image_t image (structure) from the data
  * read.
  *
- * Parameter:
- * fptr - pointer to a CFITSIO fitsfile structure corresponding to a particular FITS file.  Must
+ * @param fptr pointer to a CFITSIO fitsfile structure corresponding to a particular FITS file.  Must
  * have been opened using CFITSIO by the time this function is called.
- * transform - transform to be performed on raw data from FITS file to create grayscale image intensities
+ * @param transform transform to be performed on raw data from FITS file to create grayscale image intensities
  * for our output image.  See f2j.h for possible values.
- * imageStruct - Reference to an image structure.  This function will populate most of the data values,
+ * @param imageStruct Reference to an image structure.  This function will populate most of the data values,
  * however, memory must have been assigned for the image data array (in the first component) by the time
  * that this function is called.
- * frame - Plane of data to read for a 3D data cube.
- * info - Pointer to a cube_info structure (see f2j.h) containing data on the image being read.
- * status - Pointer to CFITSIO status integer.  The value must have been initialised to 0 by the time
+ * @param frame Plane of data to read for a 3D data cube.  Must be a valid frame number from 1 to [total number
+ * of frames] inclusive.  Arbitrary for a 2D image.
+ * @param info Pointer to a cube_info structure containing data on the image being read.
+ * @param status Pointer to CFITSIO status integer.  The value must have been initialised to 0 by the time
  * that this function is called.
  *
- * Returns 0 if there were no errors, 1 otherwise.
+ * @return 0 if there were no errors, 1 otherwise.
  */
 int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, int frame, cube_info *info, int *status) {
 	// Check parameters.
@@ -543,19 +555,20 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	return 0;
 }
 
-/*
- * Encodes a specified image to a specified JPEG 2000 file.  While this function checks that the
- * specified parameters are not null, in general, they are assumed to be correct, and it is the
- * responsibility of the client code to ensure meaningful data is passed to this function.
+/**
+ * Encodes a specified image to a specified JPEG 2000 file.
  *
- * outfile - name of JPEG 2000 image to create.  This file will be overwritten if it already
+ * Basic parameter checking is performed, but the responsibility for ensuring parameters are
+ * valid and meaningful is largely left to the calling function.
+ *
+ * @param outfile Name of JPEG 2000 image to create.  This file will be overwritten if it already
  * exists.
- * codec - specified codec to use.  See http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf
+ * @param codec specified codec to use.  See <a href="http://www.openjpeg.org/libdoc/openjpeg_8h.html#a1d857738cef754699ffb79ddff48efbf">OpenJPEG documentation</a>
  * for legal values.
- * parameters - compression parameters to use.
- * frame - image to compress.
+ * @param parameters compression parameters to use.
+ * @param frame image to compress.
  *
- * Returns 0 if compression was successful, 1 otherwise.
+ * @return 0 if compression was successful, 1 otherwise.
  */
 int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t *parameters, opj_image_t *frame) {
 	if (outfile == NULL || parameters == NULL || frame == NULL) {
@@ -629,7 +642,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 	return 0;
 }
 
-/*
+/**
  * Function to read a frame from a FITS data cube, create a grayscale image from it, then encode it as a JPEG 2000
  * image using lossy or lossless compression.
  *
@@ -641,18 +654,18 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * This function performs basic checking that the parameters are not null, but in general, it is up to the client
  * code to ensure that parameters are valid and meaningful.
  *
- * info - Reference to cube_info structure containing information on the data cube.
- * fptr - Pointer to a fitsfile structure.  Assumed to be initialised by this point.
- * transform - transform to perform when converting frame to image.
- * frameNumber - Number of frame in 3D data cube.  Arbitrary for 2D images.
- * status - Reference to status integer for CFITSIO.  Assumed to be initialised to 0 by this point.
- * outFileStub - File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2/j2k and STUB_LOSSLESS.jp2/j2k
+ * @param info Reference to cube_info structure containing information on the data cube.
+ * @param fptr Pointer to a fitsfile structure.  Assumed to be initialised by this point.
+ * @param transform transform to perform when converting frame to image.
+ * @param frameNumber Number of frame in 3D data cube.  Arbitrary for 2D images.
+ * @param status Reference to status integer for CFITSIO.  Assumed to be initialised to 0 by this point.
+ * @param outFileStub File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2/j2k and STUB_LOSSLESS.jp2
  * (if writeUncompressed is true).
- * writeUncompressed - Should a copy of the image be encoded using lossless compression.  May want to
+ * @param writeUncompressed Should a copy of the image be encoded using lossless compression.  May want to
  * do this to compare lossless VS lossy compression on an image.
- * parameters - Compression parameters.
+ * @param parameters Compression parameters.
  *
- * Returns 0 if all operations were successful, 1 otherwise.
+ * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int frameNumber, int *status, char *outFileStub,
 		bool writeUncompressed, opj_cparameters_t *parameters) {
@@ -711,7 +724,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 		}
 
 		// Create filename string for losslessly compressed file.
-		// Name is STUB_LOSSLESS.jp2/j2k
+		// Name is STUB_LOSSLESS.jp2
 		char losslessFile[stublen + 14];
 
 		sprintf(losslessFile,"%s_LOSSLESS.jp2",outFileStub);
@@ -758,6 +771,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, int f
 	return 0;
 }
 
+/**
+ * Main function run from the command line.
+ */
 int main(int argc, char *argv[]) {
 	// Transform (if any) to perform on raw data.  This is a default value.  May be changed
 	// when parsing user input from the command line.

@@ -1,11 +1,11 @@
-/*
- * Functions in f2j that are largely taken from the OpenJPEG library.  They are modified
- * here for our purposes.
+/**
+ * @file openjpeg.c
+ * @author Andrew Cannon
+ * @date December 2011
  *
- * openjpeg.c
+ * @brief Functions in f2j that are largely taken from the OpenJPEG library.
  *
- *  Created on: Dec 21, 2011
- *      Author: acannon
+ * They are modified here for our purposes.
  */
 
 // OpenJPEG code is provided under the following BSD license.
@@ -48,8 +48,9 @@
 #include "getopt.h"
 #include "format_defs.h"
 
-/*
- * Taken from image_to_j2k.c.
+/**
+ * Taken from directly image_to_j2k.c in OpenJPEG.  See <a href="http://www.openjpeg.org/libdoc/index.html">OpenJPEG documentation</a>
+ * for more information.
  */
 OPJ_PROG_ORDER give_progression(char progression[4]) {
 	if(strncmp(progression, "LRCP", 4) == 0) {
@@ -71,15 +72,27 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
 	return PROG_UNKNOWN;
 }
 
-/*
- * Command line parser.  Take command line parameters, parses them and encodes an
+/**
+ * Command line parser.  Takes command line parameters, parses them and encodes an
  * opj_cparameters_t object with the specified compression parameters.  Extracted, with
- * minor modifications, from image_to_j2k.c.
+ * minor modifications, from image_to_j2k.c.  Uses most of the command line prefixes from
+ * image_to_j2k.c in OpenJPEG.  Also defines 3 additional command line parameters, A,
+ * specifying how the raw data in the FITS file should be transformed, L specifying whether
+ * a lossless version of the image should be encoded in addition to the lossy version and
+ * m, allowing the user to specify only a single frame in a data cube to be processed.
  *
- * Also read from the command line (in addition to encoding parameters from OpenJPEG):
- * -transform (option A) - how should the raw FITS data be transformed?
- * -writeUncompressed (option L) - should a lossless version of the image be written
- * in addition to the (possibly lossy) version?
+ * @param argc Number of command line arguments.
+ * @param argv Command line arguments.
+ * @param parameters Compression parameters structure.  Assumed to have been populated
+ * with default values by the time this function is called.  This function will configure
+ * parameters based on the command line options specified.
+ * @param transform Reference to the transform to be performed on the raw data.  This will
+ * be updated if a transform is specified on the command line.
+ * @param writeUncompressed Reference to boolean specifying if a lossless version of image
+ * should be written.  This will be set to true if the L parameter is present on the command
+ * line.
+ *
+ * @return 0 if parsing was successful, 1 otherwise.
  */
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed) {
 	int i, j,totlen;
@@ -94,7 +107,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:"
+	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
