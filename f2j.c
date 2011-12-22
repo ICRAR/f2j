@@ -116,14 +116,14 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int shortImgTransform(short *rawData, int *imageData, transform transform, int len) {
+int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to shortImgTransform cannot be null or empty.\n");
 		return 1;
 	}
 
 	// Loop variables
-	int ii;
+	size_t ii;
 
 	if (transform == RAW) {
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
@@ -141,15 +141,17 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
 
 		return 0;
 	}
-	else {
-		fprintf(stderr,"This data type is not currently supported.\n");
-		return 1;
-	}
+
+	fprintf(stderr,"This transform is not currently supported for this data type.\n");
+	return 1;
 }
 
 /**
  * Function for transforming a raw array of data from a FITS file (in the form of
  * an unsigned short array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
+ *
+ * Very basic parameter checking is performed, but the responsibility for checking
+ * parameters are valid and meaningful is largely left to the calling function.
  *
  * @param rawData unsigned short array read from a FITS file using CFITSIO
  * @param imageData int array, assumed to be the same length as rawData, to be populated
@@ -160,13 +162,41 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, int l
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
+	if (rawData == NULL || imageData == NULL || len < 1) {
+		fprintf(stderr,"Data arrays to uShortImgTransform cannot be null or empty.\n");
+		return 1;
+	}
+
+	// Loop variables
+	size_t ii;
+
+	if (transform == RAW) {
+		// Simple raw copying.
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) rawData[ii];
+		}
+
+		return 0;
+	}
+	else if (transform == NEGATIVE_RAW) {
+		// As for linear, but subtract from 65535
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = 65535 - (int) rawData[ii];
+		}
+
+		return 0;
+	}
+
+	fprintf(stderr,"This transform is not currently supported for this data type.\n");
 	return 1;
 }
 
 /**
  * Function for transforming a raw array of data from a FITS file (in the form of
- * an unsigned char array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
+ * an unsigned char array) into grayscale image intensities (between 0 and 255 inclusive).
+ *
+ * Very basic parameter checking is performed, but the responsibility for checking
+ * parameters are valid and meaningful is largely left to the calling function.
  *
  * @param rawData unsigned char array read from a FITS file using CFITSIO
  * @param imageData int array, assumed to be the same length as rawData, to be populated
@@ -176,8 +206,33 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
+int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len) {
+	if (rawData == NULL || imageData == NULL || len < 1) {
+		fprintf(stderr,"Data arrays to byteImgTransform cannot be null or empty.\n");
+		return 1;
+	}
+
+	// Loop variables
+	size_t ii;
+
+	if (transform == RAW) {
+		// Simple raw transform
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) rawData[ii];
+		}
+
+		return 0;
+	}
+	else if (transform == NEGATIVE_RAW) {
+		// Invert raw transform
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = 255 - (int) rawData[ii];
+		}
+
+		return 0;
+	}
+
+	fprintf(stderr,"This transform is not currently supported for this data type.\n");
 	return 1;
 }
 
@@ -185,7 +240,10 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
  * Function for transforming a raw array of data from a FITS file (in the form of
  * a char array) into grayscale image intensities (between 0 and 2^16-1 inclusive).
  *
- * @param rawData char array read from a FITS file using CFITSIO
+ * Very basic parameter checking is performed, but the responsibility for checking
+ * parameters are valid and meaningful is largely left to the calling function.
+ *
+ * @param rawData signed char array read from a FITS file using CFITSIO
  * @param imageData int array, assumed to be the same length as rawData, to be populated
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
@@ -193,8 +251,33 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int sByteImgTransform(char *rawData, int *imageData, transform transform, int len) {
-	fprintf(stderr,"This data type is not currently supported.\n");
+int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len) {
+	if (rawData == NULL || imageData == NULL || len < 1) {
+		fprintf(stderr,"Data arrays to sByteImgTransform cannot be null or empty.\n");
+		return 1;
+	}
+
+	// Loop variables
+	size_t ii;
+
+	if (transform == RAW) {
+		// Take raw data, shift it to be unsigned.
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = 128 + (int) rawData[ii];
+		}
+
+		return 0;
+	}
+	else if (transform == NEGATIVE_RAW) {
+		// Invert raw transform.
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = 127 + (int) rawData[ii];
+		}
+
+		return 0;
+	}
+
+	fprintf(stderr,"This transform is not currently supported for this data type.\n");
 	return 1;
 }
 
@@ -217,7 +300,7 @@ int sByteImgTransform(char *rawData, int *imageData, transform transform, int le
  */
 int floatDoubleTransform(double *rawData, int *imageData, transform transform, int len, double datamin, double datamax) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
-		fprintf(stderr,"Data arrays in floatCustomTransform cannot be null or empty.\n");
+		fprintf(stderr,"Data arrays in floatDoubleTransform cannot be null or empty.\n");
 		return 1;
 	}
 
@@ -286,6 +369,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, i
 		return 0;
 	}
 
+	fprintf(stderr,"This transform is not currently supported for this data type.\n");
 	return 1;
 }
 
@@ -459,6 +543,15 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	// Different reading operations for each different image type.
 	// 8 bit unsigned integer case
 	if (info->bitpix == BYTE_IMG) {
+		// Turn off scaling for this data stream if using raw data scales.
+		if (transform == RAW || transform == NEGATIVE_RAW) {
+			fits_set_bscale(fptr,1.0,0.0,status);
+		}
+
+		// We're only dealing with 8 bit data, so encode an 8 bit grayscale image.
+		imageStruct->comps[0].bpp = 8;
+		imageStruct->comps[0].prec = 8;
+
 		READ_AND_TRANSFORM(unsigned char,TBYTE,byteImgTransform);
 	}
 	// 16 bit signed integer case
@@ -540,10 +633,24 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	}
 	// Signed char (8 bit integer) case
 	else if (info->bitpix == SBYTE_IMG) {
+		// Turn off scaling for this data stream if using raw data scales.
+		if (transform == RAW || transform == NEGATIVE_RAW) {
+			fits_set_bscale(fptr,1.0,0.0,status);
+		}
+
+		// We're only dealing with 8 bit data, so encode an 8 bit grayscale image.
+		imageStruct->comps[0].bpp = 8;
+		imageStruct->comps[0].prec = 8;
+
 		READ_AND_TRANSFORM(char,TSBYTE,sByteImgTransform);
 	}
 	// Unsigned short (16 bit integer) case
 	else if (info->bitpix == USHORT_IMG) {
+		// Turn off scaling for this data stream if using raw data scales.
+		if (transform == RAW || transform == NEGATIVE_RAW) {
+			fits_set_bscale(fptr,1.0,0.0,status);
+		}
+
 		READ_AND_TRANSFORM(unsigned short,TUSHORT,uShortImgTransform);
 	}
 	// Unsigned 32 bit integer case

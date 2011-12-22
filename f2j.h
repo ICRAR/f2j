@@ -109,7 +109,7 @@ typedef enum {
 	NEGATIVE_LOG /** Inverse image from logarithmic scale. */,
 	LINEAR /** Linear scale. */,
 	NEGATIVE_LINEAR /** Inverse image from linear scale. */,
-	RAW /** Convert raw values to image intensities.  Only defined for FITS files containing short/byte data.  If raw daa is signed, it will be shifted to be unsigned.  */,
+	RAW /** Convert raw values to image intensities.  Only defined for FITS files containing short/byte data.  If raw data is signed, it will be shifted to be unsigned.  */,
 	NEGATIVE_RAW /** Inverse image from raw transform. */
 } transform;
 
