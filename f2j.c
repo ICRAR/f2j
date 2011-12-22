@@ -34,7 +34,7 @@
 		fprintf(stderr,"Error reading frame %ld of image.\n",frame);\
 		return 1;\
 	}\
-	int transformResult = transformFunction(imageArray,imageStruct->comps[0].data,transform,info->width*info->height);\
+	int transformResult = transformFunction(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,info->width);\
 	\
 	if (transformResult != 0) {\
 		fprintf(stderr,"Specified transform could not be performed.\n");\
@@ -59,10 +59,11 @@ void displayHelp() {
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len - length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len) {
+int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -76,10 +77,11 @@ int longLongImgTransform(long long int *rawData, int *imageData, transform trans
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int intImgTransform(int *rawData, int *imageData, transform transform, size_t len) {
+int intImgTransform(int *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -93,10 +95,11 @@ int intImgTransform(int *rawData, int *imageData, transform transform, size_t le
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len) {
+int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -113,10 +116,11 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len) {
+int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to shortImgTransform cannot be null or empty.\n");
 		return 1;
@@ -126,17 +130,43 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 	size_t ii;
 
 	if (transform == RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[ii] + 32768;
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 32767 - (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
@@ -158,10 +188,11 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len) {
+int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to uShortImgTransform cannot be null or empty.\n");
 		return 1;
@@ -171,17 +202,43 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 	size_t ii;
 
 	if (transform == RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Simple raw copying.
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 65535 - (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
@@ -203,10 +260,11 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len) {
+int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to byteImgTransform cannot be null or empty.\n");
 		return 1;
@@ -216,17 +274,43 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 	size_t ii;
 
 	if (transform == RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Simple raw transform
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Invert raw transform
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 255 - (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
@@ -248,10 +332,11 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
  * with grayscale image intensities.
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len) {
+int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len, size_t width) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to sByteImgTransform cannot be null or empty.\n");
 		return 1;
@@ -261,17 +346,43 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 	size_t ii;
 
 	if (transform == RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Take raw data, shift it to be unsigned.
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 128 + (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		// Invert raw transform.
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 127 + (int) rawData[ii];
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
 		}
 
 		return 0;
@@ -295,10 +406,11 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
  * @param len length of rawData & imageData arrays.
  * @param datamin minimum value in rawData.
  * @param datamax maximum value in rawData.
+ * @param width width of image.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax) {
+int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax, size_t width) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays in floatDoubleTransform cannot be null or empty.\n");
 		return 1;
@@ -322,8 +434,13 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		double scale = 65535.0/log((datamax+zero)/absMin);
 
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (scale * log( (rawData[ii] + zero) / absMin) );
+			// Read the flipped image pixel.
+			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) );
 
 			// Shouldn't get values outside this range, but just in case.
 			if (imageData[ii] < 0) {
@@ -335,6 +452,15 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 			if (transform == NEGATIVE_LOG) {
 				imageData[ii] = 65535 - imageData[ii];
+			}
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
 			}
 		}
 
@@ -351,8 +477,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		double scale = 65535.0/(datamax+zero);
 
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (rawData[ii] * scale);
+			imageData[ii] = (int) (rawData[index] * scale);
 
 			if (imageData[ii] < 0) {
 				imageData[ii] = 0;
@@ -363,6 +493,15 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 			if (transform == NEGATIVE_LINEAR) {
 				imageData[ii] = 65535 - imageData[ii];
+			}
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
 			}
 		}
 
@@ -623,7 +762,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			}
 		}
 
-		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax);
+		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax,info->width);
 
 		if (transformResult != 0) {
 			fprintf(stderr,"Specified transform could not be performed.\n");
