@@ -136,7 +136,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[ii] + 32768;
+			imageData[ii] = (int) rawData[index] + 32768;
 
 			// Update index for vertical flipping.
 			index++;
@@ -157,7 +157,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 32767 - (int) rawData[ii];
+			imageData[ii] = 32767 - (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -208,7 +208,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// Simple raw copying.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[ii];
+			imageData[ii] = (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -229,7 +229,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 65535 - (int) rawData[ii];
+			imageData[ii] = 65535 - (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -280,7 +280,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Simple raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[ii];
+			imageData[ii] = (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -301,7 +301,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Invert raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 255 - (int) rawData[ii];
+			imageData[ii] = 255 - (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -352,7 +352,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Take raw data, shift it to be unsigned.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 128 + (int) rawData[ii];
+			imageData[ii] = 128 + (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
@@ -373,7 +373,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Invert raw transform.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 127 + (int) rawData[ii];
+			imageData[ii] = 127 + (int) rawData[index];
 
 			// Update index for vertical flipping.
 			index++;
