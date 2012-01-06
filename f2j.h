@@ -83,8 +83,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
+#include <openjpeg-1.99/openjpeg.h>
 #include "fitsio.h"
-#include "openjpeg.h"
 
 /**
  * Structure for defining essential properties of a FITS datacube.

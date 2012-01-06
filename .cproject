@@ -27,7 +27,6 @@
 								<option id="gnu.c.compiler.option.include.paths.2060586789" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/CFITSIO/cfitsio"/>
 									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/OpenJPEG/common"/>
-									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/OpenJPEG/libopenjpeg"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.297079301" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -42,7 +41,6 @@
 								</option>
 								<option id="gnu.c.link.option.paths.1875655072" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/CFITSIO/cfitsio/lib"/>
-									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/OpenJPEG/bin"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1137068185" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
