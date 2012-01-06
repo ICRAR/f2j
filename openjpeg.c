@@ -46,6 +46,8 @@
 #include "f2j.h"
 
 #include "opj_getopt.h"
+#include "opj_getopt.c" /* Slightly unorthordox to import a source rather than header file,
+but we need the code, and it's better not to place an unmodified source file in our project.  */
 #include "format_defs.h"
 
 /**
@@ -836,6 +838,12 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 						case 'J':			/* jpip on */
 						{
 						  parameters->jpip_on = OPJ_TRUE;
+
+						  // Switch to CODEC_JP2
+						  if (parameters->cod_format == CODEC_J2K) {
+							  parameters->cod_format = CODEC_JP2;
+							  fprintf(stderr,"J2K output not possible with JPIP.  Switching to JP2.\n");
+						  }
 						}
 						break;
 							/* ------------------------------------------------------ */
