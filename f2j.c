@@ -855,12 +855,26 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 	cio = opj_cio_open((opj_common_ptr)cinfo,NULL,0);
 
 	// Was compression successful?
-	bool compSuccess = opj_encode(cinfo,cio,frame,NULL);
+	opj_bool compSuccess;
+
+	// Codestream information (needed for JPIP)
+	opj_codestream_info_t cstr_info;
+
+	// Perform compression and check if it was successful
+	if (codec == CODEC_JP2 && parameters->jpip_on) {
+		// See if we need to encode JPIP index information.
+		compSuccess = opj_encode_with_info(cinfo,cio,frame,&cstr_info);
+	}
+	else {
+		// Otherwise, encode without index information.
+		compSuccess = opj_encode(cinfo,cio,frame,NULL);
+	}
 
 	// Exit unsuccessfully if compression unsuccessful.
 	if (!compSuccess) {
 		fprintf(stderr,"Unable to compress file %s.\n",outfile);
 		opj_cio_close(cio);
+		opj_destroy_compress(cinfo);
 		return 1;
 	}
 
@@ -874,6 +888,10 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 	if (!f) {
 		fprintf(stderr,"Unable to open output file: %s for writing.\n",outfile);
 		opj_cio_close(cio);
+		opj_destroy_compress(cinfo);
+		if (codec == CODEC_JP2 && parameters->jpip_on) {
+			opj_destroy_cstr_info(&cstr_info);
+		}
 		return 1;
 	}
 
@@ -888,6 +906,9 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 
 	// Free compression structures.
 	opj_destroy_compress(cinfo);
+	if (codec == CODEC_JP2 && parameters->jpip_on) {
+		opj_destroy_cstr_info(&cstr_info);
+	}
 
 	return 0;
 }
