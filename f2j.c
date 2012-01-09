@@ -840,7 +840,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
 	memset(&event_mgr,0,sizeof(opj_event_mgr_t));
 
 	// Catch events
-	opj_set_event_mgr((opj_common_ptr)cinfo,&event_mgr,stderr);
+	opj_initialize_default_event_handler(&event_mgr,true);
 
 	// IO stream for compression.
 	opj_cio_t *cio = NULL;
