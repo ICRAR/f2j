@@ -44,6 +44,15 @@
 
 #include "f2j.h"
 
+void error_callback(const char *msg, void *client_data) {
+}
+
+void warning_callback(const char *msg, void *client_data) {
+}
+
+void info_callback(const char *msg, void *client_data) {
+}
+
 /**
  * Read a JPEG 2000 image from a file, decompress it and create an OpenJPEG
  * image structure from it.
@@ -81,12 +90,12 @@ int readJ2K(char *imageFile, opj_image_t **image, OPJ_CODEC_FORMAT codec) {
 
 	/* configure the event callbacks (not required) */
 	memset(&event_mgr, 0, sizeof(opj_event_mgr_t));
+	event_mgr.error_handler = error_callback;
+	event_mgr.warning_handler = warning_callback;
+	event_mgr.info_handler = info_callback;
 
 	/* set decoding parameters to default values */
 	opj_set_default_decoder_parameters(&parameters);
-
-	/* Set default event mgr */
-	opj_initialize_default_event_handler(&event_mgr, 1);
 
 	/* read the input file and put it in memory */
 	/* ---------------------------------------- */
@@ -175,6 +184,98 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 	if (readResult != 0) {
 		fprintf(stderr,"Unable to read JPEG file: %s\n",compressedFile);
 		return 1;
+	}
+
+	// Specify whether two images are comparable on a pixel by pixel basis.  For this to be true,
+	// they need to have the same dimensions and the same number of components.
+	// By default true, otherwise we set this to be false when performing sanity checking below.
+	bool pixelsComparable = true;
+
+	// Loop variables
+	int ii,jj;
+
+	// Now compare the two images.  Start with some basic sanity checking.
+	if (compressedImage->color_space != image->color_space) {
+		fprintf(stdout,"COLOR_SPACE of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+	}
+
+	if (compressedImage->icc_profile_len != image->icc_profile_len) {
+		fprintf(stdout,"ICC_PROFILE_LEN of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+	}
+
+	if (compressedImage->x0 != image->x0) {
+		fprintf(stdout,"X0 of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+	}
+
+	if (compressedImage->x1 != image->x1) {
+		fprintf(stdout,"X1 of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+		pixelsComparable = false; // Width not equal.
+	}
+
+	if (compressedImage->y0 != image->y0) {
+		fprintf(stdout,"Y0 of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+	}
+
+	if (compressedImage->y1 != image->y1) {
+		fprintf(stdout,"Y1 of compressed image does not match uncompressed image for file: %s\n",compressedFile);
+		pixelsComparable = false; // Height not equal.
+	}
+
+	if (compressedImage->numcomps != image->numcomps) {
+		fprintf(stdout,"Number of components in compressed and uncompressed images are not the same for file: %s\n",compressedFile);
+		pixelsComparable = false; // Different numbers of components.
+	}
+
+	if (pixelsComparable) {
+		// Perform pixel by pixel comparison, component by component.  We should have only 1 component, but wrap the code in
+		// a loop in case we eventually have to deal with more.
+		for (ii=0; ii<image->numcomps; ii++) {
+			// Get short references to both compressed & uncompressed components.
+			opj_image_comp_t compUC = image->comps[ii];
+			opj_image_comp_t compC = compressedImage->comps[ii];
+
+			// Perform sanity check comparison on component dimensions.
+			if (compUC.w != compC.w || compUC.h != compC.h) {
+				fprintf(stdout,"Component %d has different dimensions in uncompressed and compressed images for file: %s\n",ii,compressedFile);
+				continue;
+			}
+
+			if (compUC.sgnd != compC.sgnd) {
+				fprintf(stdout,"Component %d is differently signed in compressed and uncompressed images for file: %s\n",ii,compressedFile);
+			}
+
+			// Number of pixels in image.
+			int pixels = compUC.w * compUC.h;
+
+			// Squared error - initially 0.  Use a 64 bit integer.  (Hopefully this will not overflow!)
+			unsigned long long int squaredError = 0;
+
+			// Was pixel by pixel comparison successful?
+			bool comparisonSuccessful = true;
+
+			// Perform pixel by pixel comparison.
+			for (jj=0; jj<pixels; jj++) {
+				unsigned long long int oldSquareError = squaredError;
+
+				squaredError += (compUC.data[jj]-compC.data[jj])*(compUC.data[jj]-compC.data[jj]);
+
+				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
+				// value is less than the old value.
+				if (oldSquareError > squaredError) {
+					comparisonSuccessful = false;
+					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+				}
+			}
+
+			// Print out MSE info if there were no errors.
+			if (comparisonSuccessful) {
+				fprintf(stdout,"%s %llu %d %f\n",compressedFile,squaredError,pixels,((double)squaredError)/((double)pixels));
+			}
+		}
+	}
+	else {
+		// Unable to perform pixel by pixel comparison.
+		fprintf(stdout,"Unable to perform pixel by pixel comparison on image %s\n",compressedFile);
 	}
 
 	// If benchmarking was successful, free image data structure.
