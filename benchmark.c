@@ -263,13 +263,51 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 				// value is less than the old value.
 				if (oldSquareError > squaredError) {
 					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %d %s\n",ii,jj,compressedFile);
 				}
 			}
 
 			// Print out MSE info if there were no errors.
 			if (comparisonSuccessful) {
-				fprintf(stdout,"%s %llu %d %f\n",compressedFile,squaredError,pixels,((double)squaredError)/((double)pixels));
+				double mse = ((double) squaredError) / ((double) pixels);
+
+				if (squaredError == 0) {
+					// Don't calculate PSNR if squaredError is 0
+					fprintf(stdout,"%s %llu %d %f NO-PSNR\n",compressedFile,squaredError,pixels,mse);
+				}
+				else {
+					// Calculate PSNR
+
+					// Maximum pixel value (for PSNR)
+					int maxPixValue = 1;
+
+					if (compC.prec == 16) {
+						// Common value: 2^16-1
+						maxPixValue = 65535;
+					}
+					else if (compC.prec == 8) {
+						// Common value: 2^8-1
+						maxPixValue = 255;
+					}
+					else {
+						// 2^prec-1
+						int prec = compC.prec;
+
+						// 2^prec
+						while (prec>0) {
+							maxPixValue *= 2;
+							prec--;
+						}
+
+						// -1
+						maxPixValue -= 1;
+					}
+
+					// Calculate PSNR
+					double psnr = 10.0 * log10( ( ((double)maxPixValue) * ((double)maxPixValue) ) / mse );
+
+					fprintf(stdout,"%s %llu %d %f %f\n",compressedFile,squaredError,pixels,mse,psnr);
+				}
 			}
 		}
 	}

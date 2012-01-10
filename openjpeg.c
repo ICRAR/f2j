@@ -91,7 +91,7 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @param transform Reference to the transform to be performed on the raw data.  This will
  * be updated if a transform is specified on the command line.
  * @param writeUncompressed Reference to boolean specifying if a lossless version of image
- * should be written.  This will be set to true if the L parameter is present on the command
+ * should be written.  This will be set to true if the LL parameter is present on the command
  * line.
  * @param startFrame First frame of data cube to read.  Ignored for 2D images.  Will only be
  * modified if the x parameter is present.  If only x is speccified (and not y), the single x
@@ -116,11 +116,12 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"POC",REQ_ARG, NULL ,'P'},
 		{"ROI",REQ_ARG, NULL ,'R'},
 		{"jpip",NO_ARG, NULL, 'J'},
-		{"QB",NO_ARG, NULL, 'K'}
+		{"QB",NO_ARG, NULL, 'K'},
+		{"LL",NO_ARG, NULL,'l'}
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:x:y:u:K:J"
+	const char optlist[] = "i:o:r:q:n:b:c:t:l:p:s:SEM:R:d:T:If:P:C:F:A:m:x:y:u:K:J"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -137,7 +138,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			break;
 		switch (c) {
 			/* Not in OpenJPEG version - should a lossless version be written? */
-			case 'L':
+			case 'l':
 			{
 				*writeUncompressed = true;
 			}
@@ -892,9 +893,6 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		parameters->tcp_rates[0] = 0;	/* MOD antonin : losslessbug */
 		parameters->tcp_numlayers++;
 		parameters->cp_disto_alloc = 1;
-
-		// No need to write lossless version twice.
-		*writeUncompressed = false;
 	}
 
 	if((parameters->cp_tx0 > parameters->image_offset_x0) || (parameters->cp_ty0 > parameters->image_offset_y0)) {
