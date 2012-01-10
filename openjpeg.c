@@ -98,10 +98,14 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * value will be interpreted as a single frame to read.
  * @param endFrame Last frame of data cube to read.  Ignored for 2D images.  Will only be
  * modified if the y parameter is present.
+ * @param performQualityBenchmarking Reference to boolean specifying if quality benchmarking
+ * should be performed on the images being compressed.  This will be set to true if the
+ * QB parameter is present on the command line.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
-int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed, long *startFrame, long *endFrame) {
+int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed,
+		long *startFrame, long *endFrame, bool *performQualityBenchmarking) {
 	int i,j,totlen,c;
 	opj_option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -111,11 +115,12 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"OutFor",REQ_ARG, NULL ,'O'},
 		{"POC",REQ_ARG, NULL ,'P'},
 		{"ROI",REQ_ARG, NULL ,'R'},
-		{"jpip",NO_ARG, NULL, 'J'}
+		{"jpip",NO_ARG, NULL, 'J'},
+		{"QB",NO_ARG, NULL, 'K'}
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:x:y:u:J"
+	const char optlist[] = "i:o:r:q:n:b:c:t:p:s:SEM:R:d:T:If:P:C:F:L:A:m:x:y:u:K:J"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -135,6 +140,13 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case 'L':
 			{
 				*writeUncompressed = true;
+			}
+			break;
+
+			/* Should quality benchmarking be performed? */
+			case 'K':
+			{
+				*performQualityBenchmarking = true;
 			}
 			break;
 
@@ -855,7 +867,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	} while (c != -1);
 
 	/* check for possible errors */
-	// We don't use the CINEMA parameters from image_to_j2k, so this test can probably be removed.
+	// We don't use the CINEMA parameters from image_to_j2k, so this test can probably be removed.  Left it in for now as I can't be 100% sure at this stage.
 	if (parameters->cp_cinema){
 		if(parameters->tcp_numlayers > 1){
 			parameters->cp_rsiz = STD_RSIZ;

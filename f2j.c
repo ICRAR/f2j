@@ -602,6 +602,35 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 	}
 
 	free(naxes);
+
+	/* Code for reading header.  This could be copied into the J2K files metadata, for example.
+	// Read header
+	// Number of keywords
+	int nkeys;
+
+	// Get number of keywords
+	fits_get_hdrspace(*fptr,&nkeys,NULL,status);
+	if (*status != 0) {
+		fprintf(stderr,"Unable to get the number of header keywords in FITS file: %s\n",ffname);
+		return 1;
+	}
+
+	// Read each keyword
+	char keyname[FLEN_CARD];
+	char keyvalue[FLEN_CARD];
+	char keycomment[FLEN_CARD];
+
+	for (ii=1; ii<=nkeys; ii++) {
+		fits_read_keyn(*fptr,ii,keyname,keyvalue,keycomment,status);
+
+		if (*status != 0) {
+			fprintf(stderr,"Error reading keyword number %d.\n",ii);
+			return 1;
+		}
+
+		fprintf(stdout,"VAR:[%s] VALUE:[%s] COMMENT:[%s]\n",keyname,keyvalue,keycomment);
+	}*/
+
 	return 0;
 }
 
@@ -935,11 +964,12 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * @param writeUncompressed Should a copy of the image be encoded using lossless compression.  May want to
  * do this to compare lossless VS lossy compression on an image.
  * @param parameters Compression parameters.
+ * @param qualityBenchmark Should quality benchmarking be performed?  The results of benchmarking will be written to stdout.
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, int *status, char *outFileStub,
-		bool writeUncompressed, opj_cparameters_t *parameters) {
+		bool writeUncompressed, opj_cparameters_t *parameters, bool qualityBenchmark) {
 	// Check parameters
 	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL) {
 		fprintf(stderr,"Parameters to setupCompression cannot be null.\n");
@@ -1036,6 +1066,11 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		return 1;
 	}
 
+	if (qualityBenchmark) {
+		// Perform quality benchmarking.  Currently we specify no benchmarking options (NULL).
+		performQualityBenchmarking(&frame,compressedFile,NULL,parameters->cod_format);
+	}
+
 	free(frame.comps[0].data);
 	free(frame.comps);
 
@@ -1054,6 +1089,10 @@ int main(int argc, char *argv[]) {
 	// when parsing user input from the command line.
 	bool writeUncompressed = false;
 
+	// Should quality benchmarking be performed on compressed images?  By default no.  May be
+	// changed when parsing user input from the command line.
+	bool performQualityBenchmarking = false;
+
 	// Structure to hold compression parameters.
 	opj_cparameters_t parameters;
 
@@ -1067,7 +1106,7 @@ int main(int argc, char *argv[]) {
 	long endFrame = -1;
 
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&performQualityBenchmarking);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -1124,7 +1163,7 @@ int main(int argc, char *argv[]) {
 		*dotPosition = '\0';
 
 		// Setup and perform compression.
-		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,&parameters);
+		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,&parameters,performQualityBenchmarking);
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
@@ -1176,7 +1215,7 @@ int main(int argc, char *argv[]) {
 			sprintf(outFileStub,"%s%ld",intermediate,ii);
 
 			// Setup and perform compression.
-			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,&parameters);
+			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,&parameters,performQualityBenchmarking);
 
 			// Exit unsuccessfully if compression unsuccessful.
 			if (result != 0) {

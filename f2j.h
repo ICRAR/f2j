@@ -99,6 +99,17 @@ typedef struct {
 } cube_info;
 
 /**
+ * Structure allowing parameters for quality benchmarking to be specified
+ * by the user.  Currently just a dummy structure (as all quality benchmarking
+ * is the same at the moment), but included for expandability in the future -
+ * we might want to be able to specify, for example, which one, out of a number
+ * of benchmarks, we want to perform.
+ */
+typedef struct {
+
+} quality_benchmark_info;
+
+/**
  * Enumerated type defining the transformations that may be performed
  * on raw FITS data to convert each datum into a 16 bit grayscale
  * (integer) intensity.
@@ -118,6 +129,8 @@ typedef enum {
 // f2j.c
 extern void displayHelp();
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,bool *);
+// benchmark.c
+extern int performQualityBenchmarking(opj_image_t *,char *,quality_benchmark_info *,OPJ_CODEC_FORMAT);
 
 #endif /* F2J_H_ */
