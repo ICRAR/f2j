@@ -965,13 +965,18 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * do this to compare lossless VS lossy compression on an image.
  * @param parameters Compression parameters.
  * @param qualityBenchmark Should quality benchmarking be performed?  The results of benchmarking will be written to stdout.
+ * @param compressionBenchmark Should compression benchmarking be performed?  If this is the case, the program will add the
+ * compressed file size to the size_t value pointed to by fileSize.
+ * @param fileSize Pointer to a off_t assumed to hold the cumulative total of the file sizes of the frames compressed so far.
+ * Assumed to be initialised to 0 before the first frame is read.  This enables the compression of the full set of JPEG 2000
+ * files corresponding to a datacube to be compared to the entire datacube.
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, int *status, char *outFileStub,
-		bool writeUncompressed, opj_cparameters_t *parameters, bool qualityBenchmark) {
+		bool writeUncompressed, opj_cparameters_t *parameters, bool qualityBenchmark, bool compressionBenchmark, off_t *fileSize) {
 	// Check parameters
-	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL) {
+	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL || fileSize == NULL) {
 		fprintf(stderr,"Parameters to setupCompression cannot be null.\n");
 		return 1;
 	}
@@ -1074,6 +1079,19 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	free(frame.comps[0].data);
 	free(frame.comps);
 
+	if (compressionBenchmark) {
+		// Get compressed file size using stat.
+		struct stat fileInfo;
+
+		int gotSize = stat(compressedFile,&fileInfo);
+
+		if (gotSize != 0) {
+			fprintf(stdout,"Unable to get size of file %s\n",compressedFile);
+		}
+
+		*fileSize += fileInfo.st_size;
+	}
+
 	return 0;
 }
 
@@ -1093,6 +1111,13 @@ int main(int argc, char *argv[]) {
 	// changed when parsing user input from the command line.
 	bool performQualityBenchmarking = false;
 
+	// Should compression rate benchmarking be performed on compress images?  By default no.  May be
+	// changed when parsing user input from the command line.
+	bool performCompressionBenchmarking = false;
+
+	// Size of compressed file(s).  Used to compare compression rate relative to FITS.
+	off_t compressedFileSize = 0;
+
 	// Structure to hold compression parameters.
 	opj_cparameters_t parameters;
 
@@ -1106,7 +1131,7 @@ int main(int argc, char *argv[]) {
 	long endFrame = -1;
 
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&performQualityBenchmarking);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&performQualityBenchmarking,&performCompressionBenchmarking);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -1163,7 +1188,8 @@ int main(int argc, char *argv[]) {
 		*dotPosition = '\0';
 
 		// Setup and perform compression.
-		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,&parameters,performQualityBenchmarking);
+		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,
+				&parameters,performQualityBenchmarking,performCompressionBenchmarking,&compressedFileSize);
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
@@ -1215,7 +1241,8 @@ int main(int argc, char *argv[]) {
 			sprintf(outFileStub,"%s%ld",intermediate,ii);
 
 			// Setup and perform compression.
-			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,&parameters,performQualityBenchmarking);
+			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,
+					&parameters,performQualityBenchmarking,performCompressionBenchmarking,&compressedFileSize);
 
 			// Exit unsuccessfully if compression unsuccessful.
 			if (result != 0) {
@@ -1228,6 +1255,23 @@ int main(int argc, char *argv[]) {
 
 	// Close FITS file.
 	fits_close_file(fptr, &status);
+
+	if (performCompressionBenchmarking) {
+		off_t fitsSize;
+
+		// Get compressed file size using stat.
+		struct stat fileInfo;
+
+		int gotSize = stat(ffname,&fileInfo);
+
+		if (gotSize != 0) {
+			fprintf(stdout,"Unable to get size of file %s\n",ffname);
+		}
+
+		fitsSize = fileInfo.st_size;
+
+		fprintf(stdout,"%s %llu %llu %f\n",ffname,(unsigned long long)compressedFileSize,(unsigned long long)fitsSize,((double)compressedFileSize)/((double)fitsSize));
+	}
 
 	exit(EXIT_SUCCESS);
 }

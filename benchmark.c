@@ -263,7 +263,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 				// value is less than the old value.
 				if (oldSquareError > squaredError) {
 					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %d %s\n",ii,jj,compressedFile);
+					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
 				}
 			}
 

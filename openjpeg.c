@@ -101,11 +101,14 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @param performQualityBenchmarking Reference to boolean specifying if quality benchmarking
  * should be performed on the images being compressed.  This will be set to true if the
  * QB parameter is present on the command line.
+ * @param performCompressionBenchmarking Reference to boolean specifying if compression benchmarking
+ * should be performed on the images being compressed.  This will be set to true if the CB parameter
+ * is present on the command line.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed,
-		long *startFrame, long *endFrame, bool *performQualityBenchmarking) {
+		long *startFrame, long *endFrame, bool *performQualityBenchmarking, bool *performCompressionBenchmarking) {
 	int i,j,totlen,c;
 	opj_option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -117,6 +120,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"ROI",REQ_ARG, NULL ,'R'},
 		{"jpip",NO_ARG, NULL, 'J'},
 		{"QB",NO_ARG, NULL, 'K'},
+		{"CB",NO_ARG,NULL,'g'},
 		{"LL",NO_ARG, NULL,'l'}
 	};
 
@@ -148,6 +152,13 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case 'K':
 			{
 				*performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Should compression benchmarking be performed? */
+			case 'g':
+			{
+				*performCompressionBenchmarking = true;
 			}
 			break;
 

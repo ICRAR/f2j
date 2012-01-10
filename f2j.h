@@ -84,6 +84,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <openjpeg-1.99/openjpeg.h>
 #include "fitsio.h"
 
@@ -129,7 +130,7 @@ typedef enum {
 // f2j.c
 extern void displayHelp();
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,bool *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,bool *,bool *);
 // benchmark.c
 extern int performQualityBenchmarking(opj_image_t *,char *,quality_benchmark_info *,OPJ_CODEC_FORMAT);
 
