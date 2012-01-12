@@ -202,12 +202,6 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 				else if (strcasecmp(transformString,"NEGATIVE_RAW") == 0) {
 					*transform = NEGATIVE_RAW;
 				}
-				else if (strcasecmp(transformString,"LOG_32") == 0) {
-					*transform = LOG_32;
-				}
-				else if (strcasecmp(transformString,"NEGATIVE_LOG_32") == 0) {
-					*transform = NEGATIVE_LOG_32;
-				}
 				else {
 					fprintf(stderr,"Unknown transform specified: %s.  Using default instead.\n",opj_optarg);
 				}

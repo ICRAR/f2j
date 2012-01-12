@@ -466,57 +466,6 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		return 0;
 	}
-	else if (transform == LOG_32 || transform == NEGATIVE_LOG_32) {
-		double absMin = datamin;
-		double zero = 0.0;
-
-		if (datamin < 0.0) {
-			absMin = -absMin;
-			zero = 2*absMin;
-		}
-		else if (datamin <= 0.0) {
-			absMin = 0.000001;
-			zero = absMin;
-		}
-
-		double scale = 4294967295.0/log((datamax+zero)/absMin);
-
-		// Variables that enable us to flip the image vertically as we read it in.
-		size_t index = len-width;
-		size_t dif = 0;
-
-		for (ii=0; ii<len; ii++) {
-			// Read the image pixel and scale it to a 32 bit unsigned integer.
-			long long int unsignedValue = (long long int) (scale * log( (rawData[index] + zero) / absMin) );
-
-			// Shouldn't get values outside this range, but just in case.
-			if (unsignedValue < 0) {
-				unsignedValue = -0;
-			}
-			else if (unsignedValue > 4294967295) {
-				unsignedValue = 4294967295;
-			}
-
-			// Inverse image if necessary.
-			if (transform == NEGATIVE_LOG_32) {
-				unsignedValue = 4294967295 - unsignedValue;
-			}
-
-			// Shift to signed 32 bit integer.
-			imageData[ii] = (int) (unsignedValue - 2147483648);
-
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
-		}
-
-		return 0;
-	}
 	else if (transform == LINEAR || transform == NEGATIVE_LINEAR) {
 		double absMin = datamin;
 		double zero = 0.0;
@@ -813,13 +762,6 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	else if (info->bitpix == FLOAT_IMG || info->bitpix == DOUBLE_IMG) {
 		if (transform == DEFAULT) {
 			transform = LOG;
-		}
-
-		if (transform == LOG_32 || transform == NEGATIVE_LOG_32) {
-			// Use 32 bit signed precision
-			imageStruct->comps[0].sgnd = 1;
-			imageStruct->comps[0].bpp = 32;
-			imageStruct->comps[0].prec = 32;
 		}
 
 		// Do we need to find the max/min values?

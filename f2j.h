@@ -118,8 +118,6 @@ typedef struct {
  * Not all transforms will be defined for all FITS image types.
  */
 typedef enum {
-	LOG_32 /** Logarithmic scale using 32 bit precision. */,
-	NEGATIVE_LOG_32 /** Inverse image from LOG_32. */,
 	LOG /** Logarithmic scale. */,
 	NEGATIVE_LOG /** Inverse image from logarithmic scale. */,
 	LINEAR /** Linear scale. */,
