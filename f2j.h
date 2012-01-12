@@ -118,12 +118,15 @@ typedef struct {
  * Not all transforms will be defined for all FITS image types.
  */
 typedef enum {
+	LOG_32 /** Logarithmic scale using 32 bit precision. */,
+	NEGATIVE_LOG_32 /** Inverse image from LOG_32. */,
 	LOG /** Logarithmic scale. */,
 	NEGATIVE_LOG /** Inverse image from logarithmic scale. */,
 	LINEAR /** Linear scale. */,
 	NEGATIVE_LINEAR /** Inverse image from linear scale. */,
 	RAW /** Convert raw values to image intensities.  Only defined for FITS files containing short/byte data.  If raw data is signed, it will be shifted to be unsigned.  */,
-	NEGATIVE_RAW /** Inverse image from raw transform. */
+	NEGATIVE_RAW /** Inverse image from raw transform. */,
+	DEFAULT /** Default transform to use if no transform is explicitly specified.  This will depend on the FITS data type.  */
 } transform;
 
 // External function declarations.
