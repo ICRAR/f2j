@@ -252,7 +252,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 		// Perform pixel by pixel comparison, component by component.  We should have only 1 component, but wrap the code in
 		// a loop in case we eventually have to deal with more.
 		for (ii=0; ii<image->numcomps; ii++) {
-			// Get short references to both compressed & uncompressed components.
+			// Get short name references to both compressed & uncompressed components.
 			opj_image_comp_t compUC = image->comps[ii];
 			opj_image_comp_t compC = compressedImage->comps[ii];
 
@@ -342,6 +342,13 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 
 				squaredError += (compUC.data[jj]-compC.data[jj])*(compUC.data[jj]-compC.data[jj]);
 
+				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
+				// value is less than the old value.
+				if (oldSquareError > squaredError) {
+					comparisonSuccessful = false;
+					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+				}
+
 				residualImage.comps[ii].data[jj] = compUC.data[jj]-compC.data[jj];
 
 				if (residualImage.comps[ii].data[jj] < resMin) {
@@ -351,13 +358,6 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 				else if (residualImage.comps[ii].data[jj] > resMax) {
 					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %d set to %d\n",compressedFile,jj,resMax);
 					residualImage.comps[ii].data[jj] = resMax;
-				}
-
-				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
-				// value is less than the old value.
-				if (oldSquareError > squaredError) {
-					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
 				}
 			}
 

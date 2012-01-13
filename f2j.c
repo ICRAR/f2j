@@ -27,6 +27,10 @@
  */
 #define READ_AND_TRANSFORM(type,fitstype,transformFunction) { \
 	type *imageArray = (type *) malloc(sizeof(type)*info->width*info->height);\
+	if (imageArray == NULL) {\
+		fprintf(stderr,"Unable to allocate memory to read fram %ld of image.\n",frame);\
+		return 1;\
+	}\
 	\
 	fits_read_pix(fptr,fitstype,fpixel,info->width*info->height,NULL,imageArray,NULL,status);\
 	\
@@ -572,6 +576,12 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 
 	// Get length of each dimension.
 	long *naxes = (long *) malloc(sizeof(long) * naxis);
+
+	if (naxes == NULL) {
+		fprintf(stderr,"Unable to allocate memory to get dimensions of FITS file: %s\n",ffname);
+		return 1;
+	}
+
 	fits_get_img_size(*fptr,naxis,naxes,status);
 
 	if (*status != 0) {
@@ -1015,16 +1025,31 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		return 1;
 	}
 
+	// Loop variables
+	int ii;
+
 	// Initialise an OpenJPEG image structure with a single component with data storage
 	// initialised to the width and height of the image.
 
 	// Create frame structure.
 	opj_image_t frame;
 	frame.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t));
+
+	if (frame.comps == NULL) {
+		fprintf(stderr,"Unable to allocate memory for component array for frame %ld of FITS file.\n",frameNumber);
+		return 1;
+	}
+
 	frame.numcomps = 1;
 
 	// Create component structure.
 	frame.comps[0].data = (int *) malloc(sizeof(int)*info->width*info->height);
+
+	if (frame.comps[0].data == NULL) {
+		fprintf(stderr,"Unable to allocate memory for component data for frame %ld of FITS file.\n",frameNumber);
+		free(frame.comps);
+		return 1;
+	}
 
 	// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
 	// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
@@ -1035,7 +1060,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 
 	if (result != 0) {
 		fprintf(stderr,"Unable to create image from frame %ld of FITS file.\n",frameNumber);
-		free(frame.comps[0].data);
+		for (ii=0; ii<frame.numcomps; ii++) {
+			free(frame.comps[ii].data);
+		}
 		free(frame.comps);
 		return 1;
 	}
@@ -1075,7 +1102,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
 			fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
-			free(frame.comps[0].data);
+			for (ii=0; ii<frame.numcomps; ii++) {
+				free(frame.comps[ii].data);
+			}
 			free(frame.comps);
 			return 1;
 		}
@@ -1100,7 +1129,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	// Exit unsuccessfully if compression unsuccessful.
 	if (result != 0) {
 		fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
-		free(frame.comps[0].data);
+		for (ii=0; ii<frame.numcomps; ii++) {
+			free(frame.comps[ii].data);
+		}
 		free(frame.comps);
 		return 1;
 	}
@@ -1110,7 +1141,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		performQualityBenchmarking(&frame,compressedFile,NULL,parameters->cod_format);
 	}
 
-	free(frame.comps[0].data);
+	for (ii=0; ii<frame.numcomps; ii++) {
+		free(frame.comps[ii].data);
+	}
 	free(frame.comps);
 
 	if (compressionBenchmark) {
