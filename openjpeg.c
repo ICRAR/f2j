@@ -137,6 +137,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"QB_AE",NO_ARG, NULL, 'Y'},
 		{"QB_SI",NO_ARG, NULL, 'X'},
 		{"QB_RES",NO_ARG, NULL, 'Z'},
+		{"suffix",REQ_ARG, NULL, 'O'},
 		{"CB",NO_ARG,NULL,'g'},
 		{"LL",NO_ARG, NULL,'l'}
 	};
@@ -162,6 +163,16 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case 'l':
 			{
 				*writeUncompressed = true;
+			}
+			break;
+
+			/* Suffix to be appended to the end of written filenames. */
+			case 'O':
+			{
+				char *suffix = opj_optarg;
+
+				// Copy string.
+				strcpy(parameters->outfile,suffix);
 			}
 			break;
 

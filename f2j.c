@@ -1238,22 +1238,29 @@ int main(int argc, char *argv[]) {
 
 	// Input file length
 	size_t ilen = strlen(ffname);
+	size_t slen = strlen(parameters.outfile);
 
 	// Read each frame of the FITS file and compress it to JPEG 2000.
 	// 2 dimensional image case
 	if (info.naxis == 2) {
 		// Output file will be input file name (minus FITS extension) + .JP2/J2K.
 		// An additional 10 characters is sufficient for the additional data.
-		char outFileStub[ilen+10];
+		// We also add a user specified suffix if it is available.
+		size_t oflen = ilen + 10 + slen;
+
+		char intermediate[oflen];
+		char outFileStub[oflen];
 
 		// Copy input file name to intermediary string.
-		strcpy(outFileStub,ffname);
+		strcpy(intermediate,ffname);
 
 		// Get the last dot
-		char *dotPosition = strrchr(outFileStub,'.');
+		char *dotPosition = strrchr(intermediate,'.');
 
 		// Terminate the string at this point.
 		*dotPosition = '\0';
+
+		sprintf(outFileStub,"%s%s",intermediate,parameters.outfile);
 
 		// Setup and perform compression.
 		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,
@@ -1291,7 +1298,7 @@ int main(int argc, char *argv[]) {
 
 			// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2.
 			// An additional 20 characters is sufficient for the additional data.
-			size_t oflen = ilen + 20;
+			size_t oflen = ilen + 20 + slen;
 
 			char intermediate[oflen];
 			char outFileStub[oflen];
@@ -1306,7 +1313,7 @@ int main(int argc, char *argv[]) {
 			*dotPosition = '_';
 			*(dotPosition+1) = '\0';
 
-			sprintf(outFileStub,"%s%ld",intermediate,ii);
+			sprintf(outFileStub,"%s%ld%s",intermediate,ii,parameters.outfile);
 
 			// Setup and perform compression.
 			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,
