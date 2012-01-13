@@ -101,13 +101,30 @@ typedef struct {
 
 /**
  * Structure allowing parameters for quality benchmarking to be specified
- * by the user.  Currently just a dummy structure (as all quality benchmarking
- * is the same at the moment), but included for expandability in the future -
- * we might want to be able to specify, for example, which one, out of a number
- * of benchmarks, we want to perform.
+ * by the user.  Currently, numerous different quality benchmarks can be
+ * specified by the user at the command line and information on these is
+ * recorded in here.
+ *
+ * The last three metrics are not really of interest in their own right, but
+ * are integer intermediate building blocks of some of the other metrics that
+ * might be useful if integer, rather than floating point, raw data is desired.
+ *
+ * The last field specifies whether a residual iamge should be written to a
+ * file.  This can be used even if no other quality benchmarks are specified.
  */
 typedef struct {
+	bool meanSquaredError /** Mean squared error.  */;
+	bool rootMeanSquaredError /** Root mean squared error.  */;
+	bool peakSignalToNoiseRatio /** Peak signal to noise ratio. */;
+	bool meanAbsoluteError /** Mean absolute error.  */;
+	bool fidelity /** Fidelity.  */;
+	bool maximumAbsoluteDistortion /** Maximum absolute distortion.  */;
+	bool squaredError /** Squared error. */;
+	bool absoluteError /** Absolute error. */;
+	bool squaredIntensitySum /** Sum of squared uncompressed image intensities. */;
 
+	bool performQualityBenchmarking /** Is at least one quality benchmark selected?  Intended to provide a quick check.  Client code must keep this up to date.  */;
+	bool writeResidual /** Should the residual image be written to a file?  */;
 } quality_benchmark_info;
 
 /**
@@ -132,7 +149,7 @@ typedef enum {
 extern void displayHelp();
 int createJPEG2000Image(char *,OPJ_CODEC_FORMAT,opj_cparameters_t *,opj_image_t *);
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,bool *,bool *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *);
 // benchmark.c
 extern int performQualityBenchmarking(opj_image_t *,char *,quality_benchmark_info *,OPJ_CODEC_FORMAT);
 

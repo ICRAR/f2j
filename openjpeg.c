@@ -98,9 +98,15 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * value will be interpreted as a single frame to read.
  * @param endFrame Last frame of data cube to read.  Ignored for 2D images.  Will only be
  * modified if the y parameter is present.
- * @param performQualityBenchmarking Reference to boolean specifying if quality benchmarking
- * should be performed on the images being compressed.  This will be set to true if the
- * QB parameter is present on the command line.
+ * @param benchmarkQualityParameters Reference to quality_benchmark_info structure specifying what,
+ * if any quality benchmark tests to be performed.  Assumed to be initialised to 'no benchmarks'
+ * before this function is called.  If the QB command line option is present, all benchmarks will
+ * be performed.  This will override any other quality parameters.  In the absence of this parameter,
+ * individual benchmarks may be turned on by specifying QB_FID for fidelity, QB_PSNR for peak signal
+ * to noise ratio, QB_MAD for maximum absolute distortion, QB_MSE for mean square error, QB_RMSE for
+ * root mean square error, QB_MAE for mean absolute error, QB_SE for squared error, QB_AE for absolute
+ * error and QB_SI for sum of uncompressed squared image intensities.  QB_RES specifies if a residual
+ * image should be written.
  * @param performCompressionBenchmarking Reference to boolean specifying if compression benchmarking
  * should be performed on the images being compressed.  This will be set to true if the CB parameter
  * is present on the command line.
@@ -108,7 +114,7 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @return 0 if parsing was successful, 1 otherwise.
  */
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed,
-		long *startFrame, long *endFrame, bool *performQualityBenchmarking, bool *performCompressionBenchmarking) {
+		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking) {
 	int i,j,totlen,c;
 	opj_option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -120,12 +126,23 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"ROI",REQ_ARG, NULL ,'R'},
 		{"jpip",NO_ARG, NULL, 'J'},
 		{"QB",NO_ARG, NULL, 'K'},
+		{"QB_NI",NO_ARG, NULL, 'N'},
+		{"QB_FID",NO_ARG, NULL, 'B'},
+		{"QB_PSNR",NO_ARG, NULL, 'D'},
+		{"QB_MAD",NO_ARG, NULL, 'G'},
+		{"QB_MSE",NO_ARG, NULL, 'H'},
+		{"QB_RMSE",NO_ARG, NULL, 'L'},
+		{"QB_MAE",NO_ARG, NULL, 'U'},
+		{"QB_SE",NO_ARG, NULL, 'V'},
+		{"QB_AE",NO_ARG, NULL, 'Y'},
+		{"QB_SI",NO_ARG, NULL, 'X'},
+		{"QB_RES",NO_ARG, NULL, 'Z'},
 		{"CB",NO_ARG,NULL,'g'},
 		{"LL",NO_ARG, NULL,'l'}
 	};
 
 	/* parse the command line */
-	const char optlist[] = "i:o:r:q:n:b:c:t:l:p:s:SEM:R:d:T:If:P:C:F:A:m:x:y:u:K:J"
+	const char optlist[] = "Z:B:D:G:H:L:U:V:Y:X:N:i:o:r:q:n:b:c:t:l:p:s:SEM:R:d:T:If:P:C:F:A:m:x:y:u:K:J"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -148,10 +165,116 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			}
 			break;
 
-			/* Should quality benchmarking be performed? */
+			/* Should all quality benchmark tests be performed? */
 			case 'K':
 			{
-				*performQualityBenchmarking = true;
+				// Main benchmarks
+				benchmarkQualityParameters->fidelity = true;
+				benchmarkQualityParameters->maximumAbsoluteDistortion = true;
+				benchmarkQualityParameters->meanAbsoluteError = true;
+				benchmarkQualityParameters->meanSquaredError = true;
+				benchmarkQualityParameters->peakSignalToNoiseRatio = true;
+				benchmarkQualityParameters->rootMeanSquaredError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+
+				// Intermediate values
+				benchmarkQualityParameters->squaredError = true;
+				benchmarkQualityParameters->absoluteError = true;
+				benchmarkQualityParameters->squaredIntensitySum = true;
+			}
+			break;
+
+			/* Should all quality benchmark tests be performed - but no intermediate results shown?
+			 * This is the same as the above case, but without the intermediate values printed.
+			 */
+			case 'N':
+			{
+				benchmarkQualityParameters->fidelity = true;
+				benchmarkQualityParameters->maximumAbsoluteDistortion = true;
+				benchmarkQualityParameters->meanAbsoluteError = true;
+				benchmarkQualityParameters->meanSquaredError = true;
+				benchmarkQualityParameters->peakSignalToNoiseRatio = true;
+				benchmarkQualityParameters->rootMeanSquaredError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Fidelity benchmarking? */
+			case 'B':
+			{
+				benchmarkQualityParameters->fidelity = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* PSNR benchmarking? */
+			case 'D':
+			{
+				benchmarkQualityParameters->peakSignalToNoiseRatio = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Maximum absolute distortion? */
+			case 'G':
+			{
+				benchmarkQualityParameters->maximumAbsoluteDistortion = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Mean squared error? */
+			case 'H':
+			{
+				benchmarkQualityParameters->meanSquaredError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Root mean squared error? */
+			case 'L':
+			{
+				benchmarkQualityParameters->rootMeanSquaredError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Mean absolute error? */
+			case 'U':
+			{
+				benchmarkQualityParameters->meanAbsoluteError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Squared error? */
+			case 'V':
+			{
+				benchmarkQualityParameters->squaredError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Absolute error? */
+			case 'Y':
+			{
+				benchmarkQualityParameters->absoluteError = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Squared uncompressed image intensity sum? */
+			case 'X':
+			{
+				benchmarkQualityParameters->squaredIntensitySum = true;
+				benchmarkQualityParameters->performQualityBenchmarking = true;
+			}
+			break;
+
+			/* Should a residual image be written? */
+			case 'Z':
+			{
+				benchmarkQualityParameters->writeResidual = true;
 			}
 			break;
 

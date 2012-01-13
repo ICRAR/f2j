@@ -79,6 +79,10 @@
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.compiler.1495188167" name="Cross GCC Compiler" superClass="cdt.managedbuild.tool.gnu.cross.c.compiler">
 								<option defaultValue="gnu.c.optimization.level.most" id="gnu.c.compiler.option.optimization.level.278322939" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.debugging.level.2115804466" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" value="gnu.c.debugging.level.none" valueType="enumerated"/>
+								<option id="gnu.c.compiler.option.include.paths.1745567722" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/openjpeg-latest/applications/common"/>
+									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/CFITSIO/cfitsio"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1944901501" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.cross.cpp.compiler.1339317383" name="Cross G++ Compiler" superClass="cdt.managedbuild.tool.gnu.cross.cpp.compiler">
@@ -86,6 +90,13 @@
 								<option id="gnu.cpp.compiler.option.debugging.level.1392172594" name="Debug Level" superClass="gnu.cpp.compiler.option.debugging.level" value="gnu.cpp.compiler.debugging.level.none" valueType="enumerated"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.linker.2112539354" name="Cross GCC Linker" superClass="cdt.managedbuild.tool.gnu.cross.c.linker">
+								<option id="gnu.c.link.option.libs.609877281" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
+									<listOptionValue builtIn="false" value="cfitsio"/>
+									<listOptionValue builtIn="false" value="openjpeg"/>
+								</option>
+								<option id="gnu.c.link.option.paths.1021865106" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="/Users/acannon/Downloads/CFITSIO/cfitsio/lib"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.95891138" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

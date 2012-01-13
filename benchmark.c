@@ -6,6 +6,9 @@
  * @brief Functions for performing benchmarking on JPEG 2000 compression.
  *
  * Currently includes quality benchmarks.  Other benchmarks may be added.
+ *
+ * Note that overflow may occur when computing fidelity metric if the number of
+ * pixels in an image (or image plane) exceeds 2^32.
  */
 
 // Some code modified from OpenJPEG.
@@ -172,7 +175,7 @@ int readJ2K(char *imageFile, opj_image_t **image, OPJ_CODEC_FORMAT codec) {
  * @return 0 if the benchmarking was performed successfully, 1 otherwise.
  */
 int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality_benchmark_info *parameters, OPJ_CODEC_FORMAT codec) {
-	if (image == NULL || compressedFile == NULL) {
+	if (image == NULL || compressedFile == NULL || parameters == NULL) {
 		fprintf(stderr,"Compressed and uncompressed images cannot be null.\n");
 		return 1;
 	}
@@ -234,21 +237,23 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 		// Should a residual image be written?  By default yes, may change if there is an error doing comparisons.
 		bool canWriteResidual = true;
 
-		residualImage.comps = malloc(sizeof(opj_image_comp_t) * image->numcomps);
-		if (!residualImage.comps) {
-			fprintf(stderr,"Unable to allocate memory for residual image components of file %s",compressedFile);
-			opj_image_destroy(compressedImage);
-			return 1;
-		}
+		if (parameters->writeResidual) {
+			residualImage.comps = malloc(sizeof(opj_image_comp_t) * image->numcomps);
+			if (!residualImage.comps) {
+				fprintf(stderr,"Unable to allocate memory for residual image components of file %s",compressedFile);
+				opj_image_destroy(compressedImage);
+				return 1;
+			}
 
-		residualImage.color_space = image->color_space;
-		residualImage.icc_profile_buf = image->icc_profile_buf;
-		residualImage.icc_profile_len = image->icc_profile_len;
-		residualImage.numcomps = image->numcomps;
-		residualImage.x0 = image->x0;
-		residualImage.x1 = image->x1;
-		residualImage.y0 = image->y0;
-		residualImage.y1 = image->y1;
+			residualImage.color_space = image->color_space;
+			residualImage.icc_profile_buf = image->icc_profile_buf;
+			residualImage.icc_profile_len = image->icc_profile_len;
+			residualImage.numcomps = image->numcomps;
+			residualImage.x0 = image->x0;
+			residualImage.x1 = image->x1;
+			residualImage.y0 = image->y0;
+			residualImage.y1 = image->y1;
+		}
 
 		// Perform pixel by pixel comparison, component by component.  We should have only 1 component, but wrap the code in
 		// a loop in case we eventually have to deal with more.
@@ -285,34 +290,36 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 				maxPixValue -= 1;
 			}
 
-			// Allocate memory for residual image data.
-			residualImage.comps[ii].data = malloc(sizeof(int) * pixels);
-			if (!residualImage.comps[ii].data) {
-				// Free memory for other components.
-				for (jj=0; jj<ii; jj++) {
-					free(residualImage.comps[jj].data);
+			if (parameters->writeResidual) {
+				// Allocate memory for residual image data.
+				residualImage.comps[ii].data = malloc(sizeof(int) * pixels);
+				if (!residualImage.comps[ii].data) {
+					// Free memory for other components.
+					for (jj=0; jj<ii; jj++) {
+						free(residualImage.comps[jj].data);
+					}
+					free(residualImage.comps);
+
+					fprintf(stderr,"Unable to allocate memory for residual image component %d of file %s\n",ii,compressedFile);
+					opj_image_destroy(compressedImage);
+					return 1;
 				}
-				free(residualImage.comps);
 
-				fprintf(stderr,"Unable to allocate memory for residual image component %d of file %s\n",ii,compressedFile);
-				opj_image_destroy(compressedImage);
-				return 1;
+				// Copy component information from uncompressed image.
+				residualImage.comps[ii].bpp = compUC.bpp;
+				residualImage.comps[ii].dx = compUC.dx;
+				residualImage.comps[ii].dy = compUC.dy;
+				residualImage.comps[ii].factor = compUC.factor;
+				residualImage.comps[ii].h = compUC.h;
+				residualImage.comps[ii].prec = compUC.prec;
+				residualImage.comps[ii].resno_decoded = compUC.resno_decoded;
+				residualImage.comps[ii].w = compUC.w;
+				residualImage.comps[ii].x0 = compUC.x0;
+				residualImage.comps[ii].y0 = compUC.y0;
+
+				// We want a signed image for the image, so we can simply use the raw difference values.
+				residualImage.comps[ii].sgnd = 1;
 			}
-
-			// Copy component information from uncompressed image.
-			residualImage.comps[ii].bpp = compUC.bpp;
-			residualImage.comps[ii].dx = compUC.dx;
-			residualImage.comps[ii].dy = compUC.dy;
-			residualImage.comps[ii].factor = compUC.factor;
-			residualImage.comps[ii].h = compUC.h;
-			residualImage.comps[ii].prec = compUC.prec;
-			residualImage.comps[ii].resno_decoded = compUC.resno_decoded;
-			residualImage.comps[ii].w = compUC.w;
-			residualImage.comps[ii].x0 = compUC.x0;
-			residualImage.comps[ii].y0 = compUC.y0;
-
-			// We want a signed image for the image, so we can simply use the raw difference values.
-			residualImage.comps[ii].sgnd = 1;
 
 			// Residual bounds
 			int resMax = (maxPixValue + 1) / 2 - 1;
@@ -368,56 +375,127 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 
 				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
 				// value is less than the old value.
+
+				// We only need to take action on an overflow if it affects one of the quality benchmarks we have
+				// been asked to performed.
 				if (oldSquareError > squaredError) {
-					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in MSE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
-					break;
+					if (parameters->squaredError || parameters->meanSquaredError || parameters->peakSignalToNoiseRatio || parameters->rootMeanSquaredError || parameters->fidelity) {
+						comparisonSuccessful = false;
+						fprintf(stdout,"Overflow occurred in MSE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+						break;
+					}
 				}
 
 				if (oldAbsoluteError > absoluteError) {
-					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in MAE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
-					break;
+					if (parameters->absoluteError || parameters->meanAbsoluteError) {
+						comparisonSuccessful = false;
+						fprintf(stdout,"Overflow occurred in MAE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+						break;
+					}
 				}
 
 				if (oldIntensitySquareSum > intensitySquareSum) {
-					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in fidelity pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
-					break;
+					if (parameters->squaredIntensitySum || parameters->fidelity) {
+						comparisonSuccessful = false;
+						fprintf(stdout,"Overflow occurred in fidelity pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+						break;
+					}
 				}
 
-				residualImage.comps[ii].data[kk] = uv-cv;
+				if (parameters->writeResidual) {
+					residualImage.comps[ii].data[kk] = uv-cv;
 
-				if (residualImage.comps[ii].data[kk] < resMin) {
-					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMin);
-					residualImage.comps[ii].data[kk] = resMin;
-				}
-				else if (residualImage.comps[ii].data[kk] > resMax) {
-					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMax);
-					residualImage.comps[ii].data[kk] = resMax;
+					if (residualImage.comps[ii].data[kk] < resMin) {
+						fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMin);
+						residualImage.comps[ii].data[kk] = resMin;
+					}
+					else if (residualImage.comps[ii].data[kk] > resMax) {
+						fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMax);
+						residualImage.comps[ii].data[kk] = resMax;
+					}
 				}
 			}
 
-			// Print out MSE info if there were no errors.
-			if (comparisonSuccessful) {
+			// Print out quality benchmarks if all relevant computations were successful.
+			if (comparisonSuccessful && parameters->performQualityBenchmarking) {
+				// Construct string specifying what the output string consists of:
+				fprintf(stdout,"[Compressed File Name] [Pixels]");
+
+				if (parameters->squaredError) {
+					fprintf(stdout," [SE]");
+				}
+				if (parameters->meanSquaredError) {
+					fprintf(stdout," [MSE]");
+				}
+				if (parameters->rootMeanSquaredError) {
+					fprintf(stdout," [RMSE]");
+				}
+				if (parameters->peakSignalToNoiseRatio) {
+					fprintf(stdout," [PSNR]");
+				}
+				if (parameters->absoluteError) {
+					fprintf(stdout," [AE]");
+				}
+				if (parameters->meanAbsoluteError) {
+					fprintf(stdout," [MAE]");
+				}
+				if (parameters->squaredIntensitySum) {
+					fprintf(stdout," [SI]");
+				}
+				if (parameters->fidelity) {
+					fprintf(stdout, " [FID]");
+				}
+				if (parameters->maximumAbsoluteDistortion) {
+					fprintf(stdout," [MAD]");
+				}
+				fprintf(stdout,"\n");
+
+				// Calculate metrics to be printed out.
 				double mse = ((double) squaredError) / ((double) pixels);
-				double mae = ((double) absoluteError) / ((double) pixels);
-				double fidelity = 1.0 - ((double) squaredError) / ((double) intensitySquareSum);
 
-				if (squaredError == 0) {
-					// Don't calculate PSNR if squaredError is 0
-					fprintf(stdout,"%s %llu %zd %f %f NO-PSNR %llu %f %d %llu %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),absoluteError,mae,maxAbsoluteError,intensitySquareSum,fidelity);
-				}
-				else {
-					// Calculate PSNR
-					double psnr = 10.0 * log10( ( ((double)maxPixValue) * ((double)maxPixValue) ) / mse );
+				fprintf(stdout,"%s %zd",compressedFile,pixels);
 
-					fprintf(stdout,"%s %llu %zd %f %f %f %llu %f %d %llu %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),psnr,absoluteError,mae,maxAbsoluteError,intensitySquareSum,fidelity);
+				if (parameters->squaredError) {
+					fprintf(stdout," %llu",squaredError);
 				}
+				if (parameters->meanSquaredError) {
+					fprintf(stdout," %f",mse);
+				}
+				if (parameters->rootMeanSquaredError) {
+					double rmse = sqrt(mse);
+					fprintf(stdout," %f",rmse);
+				}
+				if (parameters->peakSignalToNoiseRatio) {
+					if (squaredError == 0) {
+						fprintf(stdout," NO-PSNR");
+					}
+					else {
+						double psnr = 10.0 * log10( ( ((double)maxPixValue) * ((double)maxPixValue) ) / mse );
+						fprintf(stdout," %f",psnr);
+					}
+				}
+				if (parameters->absoluteError) {
+					fprintf(stdout," %llu",absoluteError);
+				}
+				if (parameters->meanAbsoluteError) {
+					double mae = ((double) absoluteError) / ((double) pixels);
+					fprintf(stdout," %f",mae);
+				}
+				if (parameters->squaredIntensitySum) {
+					fprintf(stdout," %llu",intensitySquareSum);
+				}
+				if (parameters->fidelity) {
+					double fidelity = 1.0 - ((double) squaredError) / ((double) intensitySquareSum);
+					fprintf(stdout, " %f",fidelity);
+				}
+				if (parameters->maximumAbsoluteDistortion) {
+					fprintf(stdout," %d",maxAbsoluteError);
+				}
+				fprintf(stdout,"\n");
 			}
 		}
 
-		if (canWriteResidual) {
+		if (parameters->writeResidual && canWriteResidual) {
 			// Write residual image to file - we'll use lossless JP2 to store it.
 
 			// Lossless compression parameters.
@@ -463,11 +541,13 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 			}
 		}
 
-		// Free memory for residual image.
-		for (ii=0; ii<residualImage.numcomps; ii++) {
-			free(residualImage.comps[ii].data);
+		if (parameters->writeResidual) {
+			// Free memory for residual image.
+			for (ii=0; ii<residualImage.numcomps; ii++) {
+				free(residualImage.comps[ii].data);
+			}
+			free(residualImage.comps);
 		}
-		free(residualImage.comps);
 	}
 	else {
 		// Unable to perform pixel by pixel comparison.

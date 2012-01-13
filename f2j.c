@@ -1008,7 +1008,8 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * @param writeUncompressed Should a copy of the image be encoded using lossless compression.  May want to
  * do this to compare lossless VS lossy compression on an image.
  * @param parameters Compression parameters.
- * @param qualityBenchmark Should quality benchmarking be performed?  The results of benchmarking will be written to stdout.
+ * @param qualityBenchmarkParameters Reference to quality_benchmark_info structure specifying which, if any, quality
+ * benchmarks to be performed.  Results will be printed to stdout.
  * @param compressionBenchmark Should compression benchmarking be performed?  If this is the case, the program will add the
  * compressed file size to the size_t value pointed to by fileSize.
  * @param fileSize Pointer to a off_t assumed to hold the cumulative total of the file sizes of the frames compressed so far.
@@ -1018,7 +1019,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, int *status, char *outFileStub,
-		bool writeUncompressed, opj_cparameters_t *parameters, bool qualityBenchmark, bool compressionBenchmark, off_t *fileSize) {
+		bool writeUncompressed, opj_cparameters_t *parameters, quality_benchmark_info *qualityBenchmarkParameters, bool compressionBenchmark, off_t *fileSize) {
 	// Check parameters
 	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL || fileSize == NULL) {
 		fprintf(stderr,"Parameters to setupCompression cannot be null.\n");
@@ -1136,9 +1137,9 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		return 1;
 	}
 
-	if (qualityBenchmark) {
+	if (qualityBenchmarkParameters->performQualityBenchmarking || qualityBenchmarkParameters->writeResidual) {
 		// Perform quality benchmarking.  Currently we specify no benchmarking options (NULL).
-		performQualityBenchmarking(&frame,compressedFile,NULL,parameters->cod_format);
+		performQualityBenchmarking(&frame,compressedFile,qualityBenchmarkParameters,parameters->cod_format);
 	}
 
 	for (ii=0; ii<frame.numcomps; ii++) {
@@ -1174,9 +1175,9 @@ int main(int argc, char *argv[]) {
 	// when parsing user input from the command line.
 	bool writeUncompressed = false;
 
-	// Should quality benchmarking be performed on compressed images?  By default no.  May be
+	// Information on what quality benchmarks to perform.  By default, no tests performed.  May be
 	// changed when parsing user input from the command line.
-	bool performQualityBenchmarking = false;
+	quality_benchmark_info qualityBenchmarkParameters;
 
 	// Should compression rate benchmarking be performed on compress images?  By default no.  May be
 	// changed when parsing user input from the command line.
@@ -1198,7 +1199,7 @@ int main(int argc, char *argv[]) {
 	long endFrame = -1;
 
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&performQualityBenchmarking,&performCompressionBenchmarking);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&qualityBenchmarkParameters,&performCompressionBenchmarking);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -1256,11 +1257,11 @@ int main(int argc, char *argv[]) {
 
 		// Setup and perform compression.
 		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,
-				&parameters,performQualityBenchmarking,performCompressionBenchmarking,&compressedFileSize);
+				&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
-			fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
+			fprintf(stderr,"Unable to compress file %s.\n",ffname);
 			fits_close_file(fptr,&status);
 			exit(EXIT_FAILURE);
 		}
@@ -1309,7 +1310,7 @@ int main(int argc, char *argv[]) {
 
 			// Setup and perform compression.
 			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,
-					&parameters,performQualityBenchmarking,performCompressionBenchmarking,&compressedFileSize);
+					&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
 
 			// Exit unsuccessfully if compression unsuccessful.
 			if (result != 0) {
@@ -1337,6 +1338,9 @@ int main(int argc, char *argv[]) {
 
 		fitsSize = fileInfo.st_size;
 
+		// Print out compression info in the format
+		// [original FITS file name] [size of compressed files(s)] [size of FITS file] [compression rate]
+		fprintf(stdout,"[FITS file] [size of compressed JPEG 2000 image(s)] [size of FITS file] [compression rate]\n");
 		fprintf(stdout,"%s %llu %llu %f\n",ffname,(unsigned long long)compressedFileSize,(unsigned long long)fitsSize,((double)compressedFileSize)/((double)fitsSize));
 	}
 
