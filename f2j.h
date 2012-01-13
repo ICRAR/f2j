@@ -130,6 +130,7 @@ typedef enum {
 // External function declarations.
 // f2j.c
 extern void displayHelp();
+int createJPEG2000Image(char *,OPJ_CODEC_FORMAT,opj_cparameters_t *,opj_image_t *);
 // openjpeg.c
 extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,bool *,bool *);
 // benchmark.c

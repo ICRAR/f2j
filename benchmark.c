@@ -227,6 +227,28 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 	}
 
 	if (pixelsComparable) {
+		// Create residual image structure.
+		opj_image_t residualImage;
+
+		// Should a residual image be written?  By default yes, may change if there is an error doing comparisons.
+		bool canWriteResidual = true;
+
+		residualImage.comps = malloc(sizeof(opj_image_comp_t)*image->numcomps);
+		if (!residualImage.comps) {
+			fprintf(stderr,"Unable to allocate memory for residual image components of file %s",compressedFile);
+			opj_image_destroy(compressedImage);
+			return 1;
+		}
+
+		residualImage.color_space = image->color_space;
+		residualImage.icc_profile_buf = image->icc_profile_buf;
+		residualImage.icc_profile_len = image->icc_profile_len;
+		residualImage.numcomps = image->numcomps;
+		residualImage.x0 = image->x0;
+		residualImage.x1 = image->x1;
+		residualImage.y0 = image->y0;
+		residualImage.y1 = image->y1;
+
 		// Perform pixel by pixel comparison, component by component.  We should have only 1 component, but wrap the code in
 		// a loop in case we eventually have to deal with more.
 		for (ii=0; ii<image->numcomps; ii++) {
@@ -234,18 +256,79 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 			opj_image_comp_t compUC = image->comps[ii];
 			opj_image_comp_t compC = compressedImage->comps[ii];
 
+			// Number of pixels in image.
+			int pixels = compUC.w * compUC.h;
+
+			// Maximum pixel value (for PSNR)
+			int maxPixValue = 1;
+
+			if (compC.prec == 16) {
+				// Common value: 2^16-1
+				maxPixValue = 65535;
+			}
+			else if (compC.prec == 8) {
+				// Common value: 2^8-1
+				maxPixValue = 255;
+			}
+			else {
+				// 2^prec-1
+				int prec = compUC.prec;
+
+				// 2^prec
+				while (prec>0) {
+					maxPixValue *= 2;
+					prec--;
+				}
+
+				// -1
+				maxPixValue -= 1;
+			}
+
+			// Allocate memory for residual image data.
+			residualImage.comps[ii].data = malloc(sizeof(int) * pixels);
+			if (!residualImage.comps[ii].data) {
+				// Free memory for other components.
+				for (jj=0; jj<ii; jj++) {
+					free(residualImage.comps[jj].data);
+				}
+				free(residualImage.comps);
+
+				fprintf(stderr,"Unable to allocate memory for residual image component %d of file %s\n",ii,compressedFile);
+				opj_image_destroy(compressedImage);
+				return 1;
+			}
+
+			// Copy component information from uncompressed image.
+			residualImage.comps[ii].bpp = compUC.bpp;
+			residualImage.comps[ii].dx = compUC.dx;
+			residualImage.comps[ii].dy = compUC.dy;
+			residualImage.comps[ii].factor = compUC.factor;
+			residualImage.comps[ii].h = compUC.h;
+			residualImage.comps[ii].prec = compUC.prec;
+			residualImage.comps[ii].resno_decoded = compUC.resno_decoded;
+			residualImage.comps[ii].w = compUC.w;
+			residualImage.comps[ii].x0 = compUC.x0;
+			residualImage.comps[ii].y0 = compUC.y0;
+
+			// We want a signed image for the image, so we can simply use the raw difference values.
+			residualImage.comps[ii].sgnd = 1;
+
+			// Residual bounds
+			int resMax = (maxPixValue + 1) / 2 - 1;
+			int resMin = -resMax - 1;
+
 			// Perform sanity check comparison on component dimensions.
 			if (compUC.w != compC.w || compUC.h != compC.h) {
 				fprintf(stdout,"Component %d has different dimensions in uncompressed and compressed images for file: %s\n",ii,compressedFile);
+				canWriteResidual = false;
 				continue;
 			}
 
 			if (compUC.sgnd != compC.sgnd) {
 				fprintf(stdout,"Component %d is differently signed in compressed and uncompressed images for file: %s\n",ii,compressedFile);
+				canWriteResidual = false;
+				continue;
 			}
-
-			// Number of pixels in image.
-			int pixels = compUC.w * compUC.h;
 
 			// Squared error - initially 0.  Use a 64 bit integer.  (Hopefully this will not overflow!)
 			unsigned long long int squaredError = 0;
@@ -258,6 +341,17 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 				unsigned long long int oldSquareError = squaredError;
 
 				squaredError += (compUC.data[jj]-compC.data[jj])*(compUC.data[jj]-compC.data[jj]);
+
+				residualImage.comps[ii].data[jj] = compUC.data[jj]-compC.data[jj];
+
+				if (residualImage.comps[ii].data[jj] < resMin) {
+					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %d set to %d\n",compressedFile,jj,resMin);
+					residualImage.comps[ii].data[jj] = resMin;
+				}
+				else if (residualImage.comps[ii].data[jj] > resMax) {
+					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %d set to %d\n",compressedFile,jj,resMax);
+					residualImage.comps[ii].data[jj] = resMax;
+				}
 
 				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
 				// value is less than the old value.
@@ -273,43 +367,68 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 
 				if (squaredError == 0) {
 					// Don't calculate PSNR if squaredError is 0
-					fprintf(stdout,"%s %llu %d %f NO-PSNR\n",compressedFile,squaredError,pixels,mse);
+					fprintf(stdout,"%s %llu %d %f %f NO-PSNR\n",compressedFile,squaredError,pixels,mse,sqrt(mse));
 				}
 				else {
 					// Calculate PSNR
-
-					// Maximum pixel value (for PSNR)
-					int maxPixValue = 1;
-
-					if (compC.prec == 16) {
-						// Common value: 2^16-1
-						maxPixValue = 65535;
-					}
-					else if (compC.prec == 8) {
-						// Common value: 2^8-1
-						maxPixValue = 255;
-					}
-					else {
-						// 2^prec-1
-						int prec = compC.prec;
-
-						// 2^prec
-						while (prec>0) {
-							maxPixValue *= 2;
-							prec--;
-						}
-
-						// -1
-						maxPixValue -= 1;
-					}
-
-					// Calculate PSNR
 					double psnr = 10.0 * log10( ( ((double)maxPixValue) * ((double)maxPixValue) ) / mse );
 
-					fprintf(stdout,"%s %llu %d %f %f\n",compressedFile,squaredError,pixels,mse,psnr);
+					fprintf(stdout,"%s %llu %d %f %f %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),psnr);
 				}
 			}
 		}
+
+		if (canWriteResidual) {
+			// Write residual image to file - we'll use lossless JP2 to store it.
+
+			// Lossless compression parameters.
+			opj_cparameters_t lossless;
+			// Initialise to default values.
+			opj_set_default_encoder_parameters(&lossless);
+
+			// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
+			lossless.tcp_mct = 0;
+
+			if (lossless.tcp_numlayers == 0) {
+				lossless.tcp_rates[0] = 0;
+				lossless.tcp_numlayers++;
+				lossless.cp_disto_alloc = 1;
+			}
+
+			// Create filename string for residual image.
+			char *lastDot = strrchr(compressedFile,'.');
+			*lastDot = '\0';
+
+			// Name is compressed file name (minus extension) + _RESIDUAL.jp2 - add enough space for terminating \n
+			char residualFile[strlen(lastDot) + 15];
+
+			sprintf(residualFile,"%s_RESIDUAL.jp2",compressedFile);
+
+			// Restore end of file name of compressed file.
+			*lastDot = '.';
+
+			// Perform JPEG 2000 compression.
+			int result = createJPEG2000Image(residualFile,CODEC_JP2,&lossless,&residualImage);
+
+			// Exit unsuccessfully if compression unsuccessful.
+			if (result != 0) {
+				// Free memory for residual image.
+				for (ii=0; ii<residualImage.numcomps; ii++) {
+					free(residualImage.comps[ii].data);
+				}
+				free(residualImage.comps);
+
+				fprintf(stderr,"Unable to compress residual image of file %s\n",compressedFile);
+				opj_image_destroy(compressedImage);
+				return 1;
+			}
+		}
+
+		// Free memory for residual image.
+		for (ii=0; ii<residualImage.numcomps; ii++) {
+			free(residualImage.comps[ii].data);
+		}
+		free(residualImage.comps);
 	}
 	else {
 		// Unable to perform pixel by pixel comparison.
