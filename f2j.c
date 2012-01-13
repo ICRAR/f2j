@@ -6,7 +6,7 @@
  * @brief Read FITS files and convert them into JPEG 2000.
  *
  * This file contains most of the custom source code for this
- * program.
+ * program for handing FITS->JPEG 2000 conversion.
  *
  * Note that this program assumes that int/float/etc widths are those on the
  * x86/x86_64 platforms.

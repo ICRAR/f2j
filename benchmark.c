@@ -193,6 +193,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 
 	// Loop variables
 	int ii,jj;
+	size_t kk;
 
 	// Now compare the two images.  Start with some basic sanity checking.
 	if (compressedImage->color_space != image->color_space) {
@@ -233,7 +234,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 		// Should a residual image be written?  By default yes, may change if there is an error doing comparisons.
 		bool canWriteResidual = true;
 
-		residualImage.comps = malloc(sizeof(opj_image_comp_t)*image->numcomps);
+		residualImage.comps = malloc(sizeof(opj_image_comp_t) * image->numcomps);
 		if (!residualImage.comps) {
 			fprintf(stderr,"Unable to allocate memory for residual image components of file %s",compressedFile);
 			opj_image_destroy(compressedImage);
@@ -257,7 +258,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 			opj_image_comp_t compC = compressedImage->comps[ii];
 
 			// Number of pixels in image.
-			int pixels = compUC.w * compUC.h;
+			size_t pixels = ((size_t) compUC.w) * ((size_t) compUC.h);
 
 			// Maximum pixel value (for PSNR)
 			int maxPixValue = 1;
@@ -333,47 +334,85 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 			// Squared error - initially 0.  Use a 64 bit integer.  (Hopefully this will not overflow!)
 			unsigned long long int squaredError = 0;
 
+			// Absolute error - initially 0.
+			unsigned long long int absoluteError = 0;
+
+			// Pixel intensities (for fidelity metric) - initially 0.
+			unsigned long long int intensitySquareSum = 0;
+
+			// Maximum absolute error - initially 0.
+			int maxAbsoluteError = 0;
+
 			// Was pixel by pixel comparison successful?
 			bool comparisonSuccessful = true;
 
 			// Perform pixel by pixel comparison.
-			for (jj=0; jj<pixels; jj++) {
-				unsigned long long int oldSquareError = squaredError;
+			for (kk=0; kk<pixels; kk++) {
+				// Get long long int values of pixels (in some cases, we get the intensity square overflowing otherwise).
+				long long int uv = (long long int) compUC.data[kk];
+				long long int cv = (long long int) compC.data[kk];
 
-				squaredError += (compUC.data[jj]-compC.data[jj])*(compUC.data[jj]-compC.data[jj]);
+				if (abs(uv-cv) > maxAbsoluteError) {
+					maxAbsoluteError = abs(uv-cv);
+				}
+
+				// Sometimes we get overflow values
+
+				unsigned long long int oldSquareError = squaredError;
+				unsigned long long int oldAbsoluteError = absoluteError;
+				unsigned long long int oldIntensitySquareSum = intensitySquareSum;
+
+				squaredError += (uv-cv)*(uv-cv);
+				absoluteError += abs(uv-cv);
+				intensitySquareSum += uv*uv;
 
 				// Check for overflow.  We can never 'wrap around' completely, so we can check if the new
 				// value is less than the old value.
 				if (oldSquareError > squaredError) {
 					comparisonSuccessful = false;
-					fprintf(stdout,"Overflow occurred in pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+					fprintf(stdout,"Overflow occurred in MSE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+					break;
 				}
 
-				residualImage.comps[ii].data[jj] = compUC.data[jj]-compC.data[jj];
-
-				if (residualImage.comps[ii].data[jj] < resMin) {
-					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %d set to %d\n",compressedFile,jj,resMin);
-					residualImage.comps[ii].data[jj] = resMin;
+				if (oldAbsoluteError > absoluteError) {
+					comparisonSuccessful = false;
+					fprintf(stdout,"Overflow occurred in MAE pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+					break;
 				}
-				else if (residualImage.comps[ii].data[jj] > resMax) {
-					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %d set to %d\n",compressedFile,jj,resMax);
-					residualImage.comps[ii].data[jj] = resMax;
+
+				if (oldIntensitySquareSum > intensitySquareSum) {
+					comparisonSuccessful = false;
+					fprintf(stdout,"Overflow occurred in fidelity pixel by pixel comparison for component %d of file %s\n",ii,compressedFile);
+					break;
+				}
+
+				residualImage.comps[ii].data[kk] = uv-cv;
+
+				if (residualImage.comps[ii].data[kk] < resMin) {
+					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMin);
+					residualImage.comps[ii].data[kk] = resMin;
+				}
+				else if (residualImage.comps[ii].data[kk] > resMax) {
+					fprintf(stderr,"Overflow calculating residual image of file %s - pixel %zd set to %d\n",compressedFile,kk,resMax);
+					residualImage.comps[ii].data[kk] = resMax;
 				}
 			}
 
 			// Print out MSE info if there were no errors.
 			if (comparisonSuccessful) {
 				double mse = ((double) squaredError) / ((double) pixels);
+				double mae = ((double) absoluteError) / ((double) pixels);
+				double fidelity = 1.0 - ((double) squaredError) / ((double) intensitySquareSum);
 
 				if (squaredError == 0) {
 					// Don't calculate PSNR if squaredError is 0
-					fprintf(stdout,"%s %llu %d %f %f NO-PSNR\n",compressedFile,squaredError,pixels,mse,sqrt(mse));
+					fprintf(stdout,"%s %llu %zd %f %f NO-PSNR %llu %f %d %llu %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),absoluteError,mae,maxAbsoluteError,intensitySquareSum,fidelity);
 				}
 				else {
 					// Calculate PSNR
 					double psnr = 10.0 * log10( ( ((double)maxPixValue) * ((double)maxPixValue) ) / mse );
 
-					fprintf(stdout,"%s %llu %d %f %f %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),psnr);
+					fprintf(stdout,"%s %llu %zd %f %f %f %llu %f %d %llu %f\n",compressedFile,squaredError,pixels,mse,sqrt(mse),psnr,absoluteError,mae,maxAbsoluteError,intensitySquareSum,fidelity);
 				}
 			}
 		}
