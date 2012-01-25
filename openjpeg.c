@@ -47,8 +47,187 @@
 
 #include "opj_getopt.h"
 #include "opj_getopt.c" /* Slightly unorthordox to import a source rather than header file,
-but we need the code, and it's better not to place an unmodified source file in our project.  */
+but we need the code, and it's better not to place an unmodified source file in our project
+if we can import it from elsewhere.  */
 #include "format_defs.h"
+
+/**
+ * Display usage information for image_to_j2k command line parameters that are used
+ * by f2j.  Largely taken from image_to_j2k.c.
+ *
+ * This function provides specific information on JPEG 2000 compression options.  The
+ * displayHelp() in f2j.c provides general program information beyond JPEG 2000 compression
+ * options.
+ */
+void encode_help_display() {
+/* UniPG>> */
+	fprintf(stdout,"List of parameters for the JPEG 2000 "
+#ifdef USE_JPWL
+		"+ JPWL "
+#endif /* USE_JPWL */
+		"encoder:\n");
+/* <<UniPG */
+	fprintf(stdout,"\n");
+	fprintf(stdout,"REMARKS:\n");
+	fprintf(stdout,"---------\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"The markers written to the main_header are : SOC SIZ COD QCD COM.\n");
+	fprintf(stdout,"COD and QCD never appear in the tile_header.\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"By default:\n");
+	fprintf(stdout,"------------\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout," * Lossless\n");
+	fprintf(stdout," * 1 tile\n");
+	fprintf(stdout," * Size of precinct : 2^15 x 2^15 (means 1 precinct)\n");
+	fprintf(stdout," * Size of code-block : 64 x 64\n");
+	fprintf(stdout," * Number of resolutions: 6\n");
+	fprintf(stdout," * No SOP marker in the codestream\n");
+	fprintf(stdout," * No EPH marker in the codestream\n");
+	fprintf(stdout," * No sub-sampling in x or y direction\n");
+	fprintf(stdout," * No mode switch activated\n");
+	fprintf(stdout," * Progression order: LRCP\n");
+	fprintf(stdout," * No ROI upshifted\n");
+	fprintf(stdout," * No offset of the origin of the image\n");
+	fprintf(stdout," * No offset of the origin of the tiles\n");
+	fprintf(stdout," * Reversible DWT 5-3\n");
+	fprintf(stdout," * No JPIP index information written to the image\n"); // Addition relative to image_to_j2k.c.
+/* UniPG>> */
+#ifdef USE_JPWL
+	fprintf(stdout," * No JPWL protection\n");
+#endif /* USE_JPWL */
+/* <<UniPG */
+	fprintf(stdout,"\n");
+	fprintf(stdout,"JPEG 2000 Compression Parameters (all optional):\n");
+	fprintf(stdout,"------------------------------------------------\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-r           : different compression ratios for successive layers (-r 20,10,5)\n ");
+	fprintf(stdout,"	         - The rate specified for each quality level is the desired \n");
+	fprintf(stdout,"	           compression factor.\n");
+	fprintf(stdout,"		   Example: -r 20,10,1 means quality 1: compress 20x, \n");
+	fprintf(stdout,"		     quality 2: compress 10x and quality 3: compress lossless\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"               (options -r and -q cannot be used together)\n ");
+	fprintf(stdout,"\n");
+
+	fprintf(stdout,"-q           : different psnr for successive layers (-q 30,40,50) \n ");
+
+	fprintf(stdout,"               (options -r and -q cannot be used together)\n ");
+
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-n           : number of resolutions (-n 3) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-b           : size of code block (-b 32,32) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-c           : size of precinct (-c 128,128) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-t           : size of tile (-t 512,512) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-p           : progression order (-p LRCP) [LRCP, RLCP, RPCL, PCRL, CPRL] \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-s           : subsampling factor (-s 2,2) [-s X,Y] \n");
+	fprintf(stdout,"	     Remark: subsampling bigger than 2 can produce error\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-POC         : Progression order change (-POC T1=0,0,1,5,3,CPRL/T1=5,0,1,6,3,CPRL) \n");
+	fprintf(stdout,"      Example: T1=0,0,1,5,3,CPRL \n");
+	fprintf(stdout,"			 : Ttilenumber=Resolution num start,Component num start,Layer num end,Resolution num end,Component num end,Progression order\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-SOP         : write SOP marker before each packet \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-EPH         : write EPH marker after each header packet \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-M           : mode switch (-M 3) [1=BYPASS(LAZY) 2=RESET 4=RESTART(TERMALL)\n");
+	fprintf(stdout,"                 8=VSC 16=ERTERM(SEGTERM) 32=SEGMARK(SEGSYM)] \n");
+	fprintf(stdout,"                 Indicate multiple modes by adding their values. \n");
+	fprintf(stdout,"                 ex: RESTART(4) + RESET(2) + SEGMARK(32) = -M 38\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-TP          : devide packets of every tile into tile-parts (-TP R) [R, L, C]\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-ROI         : c=%%d,U=%%d : quantization indices upshifted \n");
+	fprintf(stdout,"               for component c=%%d [%%d = 0,1,2]\n");
+	fprintf(stdout,"               with a value of U=%%d [0 <= %%d <= 37] (i.e. -ROI c=0,U=25) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-d           : offset of the origin of the image (-d 150,300) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-T           : offset of the origin of the tiles (-T 100,75) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-I           : use the irreversible DWT 9-7 (-I) \n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-F           : characteristics of the raw input image\n");
+	fprintf(stdout,"               -F rawWidth,rawHeight,rawComp,rawBitDepth,s/u (Signed/Unsigned)\n");
+	fprintf(stdout,"               Example: -i lena.raw -o lena.j2k -F 512,512,3,8,u\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"-jpip        : write jpip codestream index box in JP2 output file\n");
+	fprintf(stdout,"               NOTICE: currently supports only RPCL order\n");
+	fprintf(stdout,"\n");
+/* UniPG>> */
+#ifdef USE_JPWL
+	fprintf(stdout,"-W           : adoption of JPWL (Part 11) capabilities (-W params)\n");
+	fprintf(stdout,"               The parameters can be written and repeated in any order:\n");
+	fprintf(stdout,"               [h<tilepart><=type>,s<tilepart><=method>,a=<addr>,...\n");
+	fprintf(stdout,"                ...,z=<size>,g=<range>,p<tilepart:pack><=type>]\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 h selects the header error protection (EPB): 'type' can be\n");
+	fprintf(stdout,"                   [0=none 1,absent=predefined 16=CRC-16 32=CRC-32 37-128=RS]\n");
+	fprintf(stdout,"                   if 'tilepart' is absent, it is for main and tile headers\n");
+	fprintf(stdout,"                   if 'tilepart' is present, it applies from that tile\n");
+	fprintf(stdout,"                     onwards, up to the next h<> spec, or to the last tilepart\n");
+	fprintf(stdout,"                     in the codestream (max. %d specs)\n", JPWL_MAX_NO_TILESPECS);
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 p selects the packet error protection (EEP/UEP with EPBs)\n");
+	fprintf(stdout,"                  to be applied to raw data: 'type' can be\n");
+	fprintf(stdout,"                   [0=none 1,absent=predefined 16=CRC-16 32=CRC-32 37-128=RS]\n");
+	fprintf(stdout,"                   if 'tilepart:pack' is absent, it is from tile 0, packet 0\n");
+	fprintf(stdout,"                   if 'tilepart:pack' is present, it applies from that tile\n");
+	fprintf(stdout,"                     and that packet onwards, up to the next packet spec\n");
+	fprintf(stdout,"                     or to the last packet in the last tilepart in the stream\n");
+	fprintf(stdout,"                     (max. %d specs)\n", JPWL_MAX_NO_PACKSPECS);
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 s enables sensitivity data insertion (ESD): 'method' can be\n");
+	fprintf(stdout,"                   [-1=NO ESD 0=RELATIVE ERROR 1=MSE 2=MSE REDUCTION 3=PSNR\n");
+	fprintf(stdout,"                    4=PSNR INCREMENT 5=MAXERR 6=TSE 7=RESERVED]\n");
+	fprintf(stdout,"                   if 'tilepart' is absent, it is for main header only\n");
+	fprintf(stdout,"                   if 'tilepart' is present, it applies from that tile\n");
+	fprintf(stdout,"                     onwards, up to the next s<> spec, or to the last tilepart\n");
+	fprintf(stdout,"                     in the codestream (max. %d specs)\n", JPWL_MAX_NO_TILESPECS);
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 g determines the addressing mode: <range> can be\n");
+	fprintf(stdout,"                   [0=PACKET 1=BYTE RANGE 2=PACKET RANGE]\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 a determines the size of data addressing: <addr> can be\n");
+	fprintf(stdout,"                   2/4 bytes (small/large codestreams). If not set, auto-mode\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 z determines the size of sensitivity values: <size> can be\n");
+	fprintf(stdout,"                   1/2 bytes, for the transformed pseudo-floating point value\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 ex.:\n");
+	fprintf(stdout,"                   h,h0=64,h3=16,h5=32,p0=78,p0:24=56,p1,p3:0=0,p3:20=32,s=0,\n");
+	fprintf(stdout,"                     s0=6,s3=-1,a=0,g=1,z=1\n");
+	fprintf(stdout,"                 means\n");
+	fprintf(stdout,"                   predefined EPB in MH, rs(64,32) from TPH 0 to TPH 2,\n");
+	fprintf(stdout,"                   CRC-16 in TPH 3 and TPH 4, CRC-32 in remaining TPHs,\n");
+	fprintf(stdout,"                   UEP rs(78,32) for packets 0 to 23 of tile 0,\n");
+	fprintf(stdout,"                   UEP rs(56,32) for packs. 24 to the last of tilepart 0,\n");
+	fprintf(stdout,"                   UEP rs default for packets of tilepart 1,\n");
+	fprintf(stdout,"                   no UEP for packets 0 to 19 of tilepart 3,\n");
+	fprintf(stdout,"                   UEP CRC-32 for packs. 20 of tilepart 3 to last tilepart,\n");
+	fprintf(stdout,"                   relative sensitivity ESD for MH,\n");
+	fprintf(stdout,"                   TSE ESD from TPH 0 to TPH 2, byte range with automatic\n");
+	fprintf(stdout,"                   size of addresses and 1 byte for each sensitivity value\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 ex.:\n");
+	fprintf(stdout,"                       h,s,p\n");
+	fprintf(stdout,"                 means\n");
+	fprintf(stdout,"                   default protection to headers (MH and TPHs) as well as\n");
+	fprintf(stdout,"                   data packets, one ESD in MH\n");
+	fprintf(stdout,"\n");
+	fprintf(stdout,"                 N.B.: use the following recommendations when specifying\n");
+	fprintf(stdout,"                       the JPWL parameters list\n");
+	fprintf(stdout,"                   - when you use UEP, always pair the 'p' option with 'h'\n");
+	fprintf(stdout,"                 \n");
+#endif /* USE_JPWL */
+/* <<UniPG */
+}
 
 /**
  * Taken from directly image_to_j2k.c in OpenJPEG.  See <a href="http://www.openjpeg.org/libdoc/index.html">OpenJPEG documentation</a>
@@ -78,10 +257,8 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * Command line parser.  Takes command line parameters, parses them and encodes an
  * opj_cparameters_t object with the specified compression parameters.  Extracted, with
  * minor modifications, from image_to_j2k.c.  Uses most of the command line prefixes from
- * image_to_j2k.c in OpenJPEG.  Also defines 3 additional command line parameters, A,
- * specifying how the raw data in the FITS file should be transformed, L specifying whether
- * a lossless version of the image should be encoded in addition to the lossy version and
- * m, allowing the user to specify only a single frame in a data cube to be processed.
+ * image_to_j2k.c in OpenJPEG.  Also defines additional command line parameters detailed
+ * below.
  *
  * @param argc Number of command line arguments.
  * @param argv Command line arguments.
@@ -89,7 +266,7 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * with default values by the time this function is called.  This function will configure
  * parameters based on the command line options specified.
  * @param transform Reference to the transform to be performed on the raw data.  This will
- * be updated if a transform is specified on the command line.
+ * be updated if a transform is specified on the command line using the parameter A.
  * @param writeUncompressed Reference to boolean specifying if a lossless version of image
  * should be written.  This will be set to true if the LL parameter is present on the command
  * line.
@@ -1013,14 +1190,6 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	} while (c != -1);
 
 	/* check for possible errors */
-	// We don't use the CINEMA parameters from image_to_j2k, so this test can probably be removed.  Left it in for now as I can't be 100% sure at this stage.
-	if (parameters->cp_cinema){
-		if(parameters->tcp_numlayers > 1){
-			parameters->cp_rsiz = STD_RSIZ;
-     	fprintf(stdout,"Warning: DC profiles do not allow more than one quality layer. The codestream created will not be compliant with the DC profile\n");
-		}
-	}
-
 	if((parameters->infile[0] == 0)) {
 		fprintf(stderr, "No input file specified - Example: %s -i image.fits\n",argv[0]);
 		fprintf(stderr, "    Try: %s -h\n",argv[0]);
@@ -1053,6 +1222,14 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 				"Unrecognized progression order in option -P (POC n %d) [LRCP, RLCP, RPCL, PCRL, CPRL] !!\n",
 				i + 1);
 		}
+	}
+
+	/* Compression benchmarking is only accurate if all planes of a data cube are read.  Display a message
+	 * informing the user of this if they specify a custom starting plane.
+	 */
+	if (*performCompressionBenchmarking && *startFrame != -1) {
+		fprintf(stderr,"Compression benchmarking results are only accurate if all planes of a data cube\n");
+		fprintf(stderr,"are converted.  Beware of this when interpreting results.\n");
 	}
 
 	return 0;

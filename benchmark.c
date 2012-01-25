@@ -3,12 +3,9 @@
  * @author Andrew Cannon
  * @date January 2012
  *
- * @brief Functions for performing benchmarking on JPEG 2000 compression.
+ * @brief Functions relating to performing benchmarking on JPEG 2000 compression.
  *
  * Currently includes quality benchmarks.  Other benchmarks may be added.
- *
- * Note that overflow may occur when computing fidelity metric if the number of
- * pixels in an image (or image plane) exceeds 2^32.
  */
 
 // Some code modified from OpenJPEG.
@@ -47,12 +44,21 @@
 
 #include "f2j.h"
 
+/**
+ * Dummy callback function.
+ */
 void error_callback(const char *msg, void *client_data) {
 }
 
+/**
+ * Dummy callback function.
+ */
 void warning_callback(const char *msg, void *client_data) {
 }
 
+/**
+ * Dummy callback function.
+ */
 void info_callback(const char *msg, void *client_data) {
 }
 
@@ -161,15 +167,16 @@ int readJ2K(char *imageFile, opj_image_t **image, OPJ_CODEC_FORMAT codec) {
 }
 
 /**
- * Function to perform image quality benchmarking between a raw uncompressed image and a compressed JPEG 2000 file.
+ * Function to perform image quality benchmarking between a raw uncompressed image and a compressed JPEG 2000 file,
+ * possibly writing a residual image.
  *
  * Very basic parameter checking is performed, but it is largely left to the client code to verify that parameters
  * are meaningful.
  *
  * @param image Reference to OpenJPEG image structure representing uncompressed version of image.
- * @param compressedFile file name of compressed JPEG 2000 image.
+ * @param compressedFile File name of compressed JPEG 2000 image.
  * @param parameters Reference to quality_benchmark_info structure specifying what quality benchmarks should be performed.
- * Currently a dummy variable, but will allow additional options to be specified in the future.
+ * Currently allows specific benchmarks to be specified by the user.
  * @param codec Codec (such as JP2/JPT/J2K) of compressed image file.
  *
  * @return 0 if the benchmarking was performed successfully, 1 otherwise.

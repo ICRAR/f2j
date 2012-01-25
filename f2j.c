@@ -51,6 +51,56 @@
  * Displays usage information for f2j.  Exits with EXIT_FAILURE when finished.
  */
 void displayHelp() {
+	fprintf(stdout,"HELP for f2j\n------------\n\n");
+	fprintf(stdout,"- the -h option displays this help information on screen\n\n");
+
+	fprintf(stdout,"Program Options:\n");
+	fprintf(stdout,"----------------\n\n");
+
+	fprintf(stdout,"-h           : display this help information \n\n");
+
+	fprintf(stdout,"-i           : FITS file to convert to JPEG 2000 (required) \n\n");
+
+	fprintf(stdout,"-o           : output format (JP2 for standard JPEG 2000 or J2K for raw codestream) \n\n");
+
+	fprintf(stdout,"-suffix      : suffix to be appended to output file names\n\n");
+
+	fprintf(stdout,"-A           : transform to perform on raw FITS data (such as LOG, NEGATIVE_LOG, RAW, \n");
+	fprintf(stdout,"               NEGATIVE_RAW, LINEAR, NEGATIVE_LINEAR).  Not all transforms are supported \n");
+	fprintf(stdout,"               for all FITS file types.\n\n");
+
+	fprintf(stdout,"-LL          : write losslessly compressed JPEG 2000 image(s) in addition to the \n");
+	fprintf(stdout,"               (possibly) lossy output\n\n");
+
+	fprintf(stdout,"-x           : first plane of data cube to convert.  If -y is not present, only this plane \n");
+	fprintf(stdout,"               will be converted.\n");
+
+	fprintf(stdout,"-y           : last plane of data cube to convert.  Must be accompanied with -x.\n\n");
+
+	fprintf(stdout,"-CB          : perform compression benchmarking.  Only produces accurate results if\n");
+	fprintf(stdout,"               all planes of a data cube are converted.\n\n");
+
+	fprintf(stdout,"-QB          : perform and display all quality benchmarks.  Benchmarks are calculated for each\n");
+	fprintf(stdout,"               plane.  Takes precedence over -QB_* options specifying individual tests.\n\n");
+
+	fprintf(stdout,"-QB_FID      : perform and display fideliy quality benchmark\n");
+	fprintf(stdout,"-QB_PSNR     : perform and display peak signal to noise ratio quality benchmark\n");
+	fprintf(stdout,"-QB_MAD      : perform and display maximum absolute distortion quality benchmark\n");
+	fprintf(stdout,"-QB_MSE      : perform and display mean squared error quality benchmark\n");
+	fprintf(stdout,"-QB_RMSE     : perform and display root mean squared error quality benchmark\n");
+	fprintf(stdout,"-QB_MAE      : perform and display mean absolute error quality benchmark\n");
+	fprintf(stdout,"-QB_SE       : perform and display squared error sum quality benchmark\n");
+	fprintf(stdout,"-QB_AE       : perform and display absolute error sum quality benchmark\n");
+	fprintf(stdout,"-QB_SI       : perform and display uncompressed squared intensity sum quality benchmark\n\n");
+
+	fprintf(stdout,"-QB_RES      : write residual image\n\n");
+
+	fprintf(stdout,"JPEG 2000 Compression Options:\n");
+	fprintf(stdout,"------------------------------\n\n");
+
+	// Display options for JPEG 2000 encoder.  Largely the same as that for image_to_j2k.
+	encode_help_display();
+
 	exit(EXIT_FAILURE);
 }
 
