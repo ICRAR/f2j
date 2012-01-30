@@ -271,7 +271,7 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * should be written.  This will be set to true if the LL parameter is present on the command
  * line.
  * @param startFrame First frame of data cube to read.  Ignored for 2D images.  Will only be
- * modified if the x parameter is present.  If only x is speccified (and not y), the single x
+ * modified if the x parameter is present.  If only x is specified (and not y), the single x
  * value will be interpreted as a single frame to read.
  * @param endFrame Last frame of data cube to read.  Ignored for 2D images.  Will only be
  * modified if the y parameter is present.
@@ -287,11 +287,17 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @param performCompressionBenchmarking Reference to boolean specifying if compression benchmarking
  * should be performed on the images being compressed.  This will be set to true if the CB parameter
  * is present on the command line.
+ * @param firstStoke First stoke of data volume to read.  Ignored for 2D or 3D images.  Will only be
+ * modified if the S1 parameter is present.  If only S1 is specified (and not S2), the single S1
+ * value will be interpreted as a single stoke to read.
+ * @param lastStoke Last stoke of data volume to read.  Ignored for 2D or 3D images.  Will only be
+ * modified if the S2 parameter is present.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed,
-		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking) {
+		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking,
+		long *firstStoke, long *lastStoke) {
 	int i,j,totlen,c;
 	opj_option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -302,6 +308,8 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"POC",REQ_ARG, NULL ,'P'},
 		{"ROI",REQ_ARG, NULL ,'R'},
 		{"jpip",NO_ARG, NULL, 'J'},
+		{"S1",REQ_ARG, NULL ,'a'},
+		{"S2",REQ_ARG, NULL ,'e'},
 		{"QB",NO_ARG, NULL, 'K'},
 		{"QB_NI",NO_ARG, NULL, 'N'},
 		{"QB_FID",NO_ARG, NULL, 'B'},
@@ -320,7 +328,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	};
 
 	/* parse the command line */
-	const char optlist[] = "Z:B:D:G:H:L:U:V:Y:X:N:i:o:r:q:n:b:c:t:l:p:s:SEM:R:d:T:If:P:C:F:A:m:x:y:u:K:J"
+	const char optlist[] = "Z:B:D:G:H:L:U:V:Y:X:N:i:o:r:q:n:b:c:t:l:p:s:SEM:R:d:T:If:P:C:F:A:m:x:y:u:K:J:a:e"
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
@@ -470,6 +478,22 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case 'g':
 			{
 				*performCompressionBenchmarking = true;
+			}
+			break;
+
+			/* What is the first stoke of the data volume to read? */
+			case 'a':
+			{
+				char *end;
+				*firstStoke = strtol(opj_optarg,&end,10);
+			}
+			break;
+
+			/*What is the last stoke of the data volume to read? */
+			case 'e':
+			{
+				char *end;
+				*lastStoke = strtol(opj_optarg,&end,10);
 			}
 			break;
 

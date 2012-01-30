@@ -95,6 +95,7 @@ typedef struct {
 	long width /** Image width. */;
 	long height /** Image height. */;
 	long depth /** Image depth.  Arbitrary for 2D images. */;
+	long stokes /** Number of stokes in image.  Arbitrary for 2D or 3D images. */;
 	int naxis /** Number of dimensions of the data cube. */;
 	int bitpix /** Image data type.  Same as BITPIX in CFITSIO. */;
 } cube_info;
@@ -149,7 +150,7 @@ typedef enum {
 extern void displayHelp();
 int createJPEG2000Image(char *,OPJ_CODEC_FORMAT,opj_cparameters_t *,opj_image_t *);
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *, long *, long *);
 void encode_help_display();
 // benchmark.c
 extern int performQualityBenchmarking(opj_image_t *,char *,quality_benchmark_info *,OPJ_CODEC_FORMAT);

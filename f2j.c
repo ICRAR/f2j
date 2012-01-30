@@ -77,6 +77,11 @@ void displayHelp() {
 
 	fprintf(stdout,"-y           : last plane of data cube to convert.  Must be accompanied with -x.\n\n");
 
+	fprintf(stdout,"-S1          : first stoke of data volume to convert.  If -S2 is not present, only this stoke \n");
+	fprintf(stdout,"               will be converted.\n");
+
+	fprintf(stdout,"-S2          : last stoke of data volume to convert.  Must be accompanied with -S2.\n\n");
+
 	fprintf(stdout,"-CB          : perform compression benchmarking.  Only produces accurate results if\n");
 	fprintf(stdout,"               all planes of a data cube are converted.\n\n");
 
@@ -645,18 +650,23 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
 	info->height = naxes[1];
 
 	// Check if we are dealing with a three (or greater) dimensional image.
-	// We can only deal with data cubes or images (2 or 3 dimensions).  Sometimes,
-	// naxis is >3, but all the higher dimensions are 1.  In this case, we can interpret
-	// this as a datacube.  Check that this is the case.
+	// We can deal with 2 (planar images), 3 (data cubes) or 4 (data cubes with
+	// multiple stokes) dimensional image.  Sometimes, naxis is >4, but all the higher
+	// dimensions are 1.  In this case, we can interpret this as a 4 dimensional image.
+	// Check that this is the case.
 	if (naxis > 2) {
 		info->depth = naxes[2];
 
-		// Check higher dimensions are length one.
-		for (ii=3; ii<naxis; ii++) {
-			if (naxes[ii]>1) {
-				fprintf(stderr,"Dimension %d in file %s has a length greater than 1.\n",ii+1,ffname);
-				free(naxes);
-				return 1;
+		if (naxis > 3) {
+			info->stokes = naxes[3];
+
+			// Check higher dimensions are length one.
+			for (ii=4; ii<naxis; ii++) {
+				if (naxes[ii]>1) {
+					fprintf(stderr,"Dimension %d in file %s has a length greater than 1.\n",ii+1,ffname);
+					free(naxes);
+					return 1;
+				}
 			}
 		}
 	}
@@ -707,16 +717,19 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  * that this function is called.
  * @param frame Plane of data to read for a 3D data cube.  Must be a valid frame number from 1 to [total number
  * of frames] inclusive.  Arbitrary for a 2D image.
+ * @param stoke Stoke of data to read for a 4D data volume.  Must be a valid stoke number from 1 to [total number
+ * of stokes] inclusive.  Arbitrary for 2D/3D images.
  * @param info Pointer to a cube_info structure containing data on the image being read.
  * @param status Pointer to CFITSIO status integer.  The value must have been initialised to 0 by the time
  * that this function is called.
  *
  * @return 0 if there were no errors, 1 otherwise.
  */
-int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, cube_info *info, int *status) {
+int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, long stoke, cube_info *info, int *status) {
 	// Check parameters.
 	if (fptr == NULL || imageStruct == NULL || info == NULL || status == NULL) {
 		fprintf(stderr,"Parameters to createImageFromFITS cannot be null.\n");
+		return 1;
 	}
 
 	// Loop variables.
@@ -727,6 +740,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	// the frame parameter is ignored.
 	if (info->naxis > 2 && (frame<1 || frame>info->depth) ) {
 		fprintf(stderr,"Specified frame must be between 1 and %ld.\n",info->depth);
+		return 1;
+	}
+
+	if (info->naxis > 3 && (stoke<1 || stoke>info->stokes) ) {
+		fprintf(stderr,"Specified stoke must be between 1 and %ld.\n",info->stokes);
+		return 1;
 	}
 
 	// Write basic information about the image to be created.
@@ -762,10 +781,14 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	if (info->naxis>2) {
 		fpixel[2] = frame;
 
-		// For any dimension > 3, the width if always 1 if we are dealing with
-		// a valid FITS file for this program.
-		for (ii=3; ii<info->naxis; ii++) {
-			fpixel[ii] = 1;
+		if (info->naxis>3) {
+			fpixel[3] = stoke;
+
+			// For any dimension > 4, the width if always 1 if we are dealing with
+			// a valid FITS file for this program.
+			for (ii=4; ii<info->naxis; ii++) {
+				fpixel[ii] = 1;
+			}
 		}
 	}
 
@@ -1052,6 +1075,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * @param fptr Pointer to a fitsfile structure.  Assumed to be initialised by this point.
  * @param transform transform to perform when converting frame to image.
  * @param frameNumber Number of frame in 3D data cube.  Arbitrary for 2D images.
+ * @param stokeNumber Number of stoke in 4D data volume.  Arbitrary for 2D/3D images.
  * @param status Reference to status integer for CFITSIO.  Assumed to be initialised to 0 by this point.
  * @param outFileStub File name stub for JPEG 2000 image to be written.  Files will be STUB.jp2/j2k and STUB_LOSSLESS.jp2
  * (if writeUncompressed is true).
@@ -1068,7 +1092,7 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
-int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, int *status, char *outFileStub,
+int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, long stokeNumber, int *status, char *outFileStub,
 		bool writeUncompressed, opj_cparameters_t *parameters, quality_benchmark_info *qualityBenchmarkParameters, bool compressionBenchmark, off_t *fileSize) {
 	// Check parameters
 	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL || fileSize == NULL) {
@@ -1107,7 +1131,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	// image data at this point.
 
 	// Create image
-	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,info,status);
+	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,stokeNumber,info,status);
 
 	if (result != 0) {
 		fprintf(stderr,"Unable to create image from frame %ld of FITS file.\n",frameNumber);
@@ -1248,8 +1272,15 @@ int main(int argc, char *argv[]) {
 	// End frame - last frame of 3D data cube to read.  Ignored for 2D images.
 	long endFrame = -1;
 
+	// Start stoke - first stoke of 4D data volume to read.  Ignored for 2D/3D images.
+	long startStoke = -1;
+
+	// End stoke - last stoke of 4D data volume to read.  Ignored for 2D/3D images.
+	long endStoke = -1;
+
 	// Parse command line parameters.
-	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,&qualityBenchmarkParameters,&performCompressionBenchmarking);
+	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,
+			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
@@ -1269,7 +1300,7 @@ int main(int argc, char *argv[]) {
 	int status = 0;
 
 	// Loop variables
-	long ii;
+	long ii,jj;
 
 	// Information on the data cube
 	cube_info info;
@@ -1283,8 +1314,6 @@ int main(int argc, char *argv[]) {
 		fits_close_file(fptr,&status);
 		exit(EXIT_FAILURE);
 	}
-
-	// Eventually, we'll alter the compression parameters at this point.
 
 	// Input file length
 	size_t ilen = strlen(ffname);
@@ -1313,7 +1342,7 @@ int main(int argc, char *argv[]) {
 		sprintf(outFileStub,"%s%s",intermediate,parameters.outfile);
 
 		// Setup and perform compression.
-		result = setupCompression(&info,fptr,transform,1,&status,outFileStub,writeUncompressed,
+		result = setupCompression(&info,fptr,transform,1,1,&status,outFileStub,writeUncompressed,
 				&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
 
 		// Exit unsuccessfully if compression unsuccessful.
@@ -1338,42 +1367,80 @@ int main(int argc, char *argv[]) {
 			endFrame = info.depth;
 		}
 
+		// Check if stoke range has been specified.
+		if (info.naxis>3) {
+			// Valid start and end stokes specified.
+			if (1<=startStoke && startStoke<=endStoke && endStoke<=info.stokes) {
+				// Do nothing, parameters already set.
+			}
+			// Valid start stoke only - just read this one.
+			else if (1<=startStoke && startStoke<=info.stokes) {
+				endStoke = startStoke;
+			}
+			// If both specified start and end stokes are invalid, read all stokes.
+			else {
+				startStoke = 1;
+				endStoke = info.depth;
+			}
+		}
+		else {
+			// If we're only dealing with a 3 dimensional image, just read one 'stoke' (corresponding
+			// to one pass through the loop).
+			startStoke = 1;
+			endStoke = 1;
+		}
+
 		for (ii=startFrame; ii<=endFrame; ii++) {
-			// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
-			// image structure is allocatged as part of the setupCompression function.
-			// If this code was being run in serial, we could save time by initialising the image structure
-			// outside of the loop, to prevent a new memory allocation being performed every time the loop
-			// ran.  However, if this code is to be parallelised, we want a separate memory allocation for
-			// each frame of the image, to allow this process to be run in parallel.
+			for (jj=startStoke; jj<=endStoke; jj++) {
+				// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
+				// image structure is allocatged as part of the setupCompression function.
+				// If this code was being run in serial, we could save time by initialising the image structure
+				// outside of the loop, to prevent a new memory allocation being performed every time the loop
+				// ran.  However, if this code is to be parallelised, we want a separate memory allocation for
+				// each frame of the image, to allow this process to be run in parallel.
 
-			// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2.
-			// An additional 20 characters is sufficient for the additional data.
-			size_t oflen = ilen + 20 + slen;
+				// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2 for a
+				// data cube or input file name (minus FITS extension) + _ + frame number + _ + stoke number + .JP2
+				// for a data volume.
+				// An additional 50 characters is sufficient for the additional data.
+				size_t oflen = ilen + 50 + slen;
 
-			char intermediate[oflen];
-			char outFileStub[oflen];
+				char intermediate[oflen];
+				char outFileStub[oflen];
 
-			// Copy input file name to intermediary string.
-			strcpy(intermediate,ffname);
+				// Copy input file name to intermediary string.
+				strcpy(intermediate,ffname);
 
-			// Get the last dot
-			char *dotPosition = strrchr(intermediate,'.');
+				// Get the last dot
+				char *dotPosition = strrchr(intermediate,'.');
 
-			// Overwrite it with an underscore.
-			*dotPosition = '_';
-			*(dotPosition+1) = '\0';
+				// Overwrite it with an underscore.
+				*dotPosition = '_';
+				*(dotPosition+1) = '\0';
 
-			sprintf(outFileStub,"%s%ld%s",intermediate,ii,parameters.outfile);
+				if (info.naxis>3) {
+					sprintf(outFileStub,"%s%ld_%ld%s",intermediate,ii,jj,parameters.outfile);
+				}
+				else {
+					sprintf(outFileStub,"%s%ld%s",intermediate,ii,parameters.outfile);
+				}
 
-			// Setup and perform compression.
-			result = setupCompression(&info,fptr,transform,ii,&status,outFileStub,writeUncompressed,
-					&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
+				// Setup and perform compression.
+				result = setupCompression(&info,fptr,transform,ii,jj,&status,outFileStub,writeUncompressed,
+						&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
 
-			// Exit unsuccessfully if compression unsuccessful.
-			if (result != 0) {
-				fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
-				fits_close_file(fptr,&status);
-				exit(EXIT_FAILURE);
+				// Exit unsuccessfully if compression unsuccessful.
+				if (result != 0) {
+					if (info.naxis>3) {
+						fprintf(stderr,"Unable to compress frame %ld of stoke %ld of file %s.\n",ii,jj,ffname);
+					}
+					else {
+						fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
+					}
+
+					fits_close_file(fptr,&status);
+					exit(EXIT_FAILURE);
+				}
 			}
 		}
 	}
