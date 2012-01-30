@@ -89,6 +89,7 @@ int readJ2K(char *imageFile, opj_image_t **image, OPJ_CODEC_FORMAT codec) {
 
 	if (*image != NULL) {
 		fprintf(stderr,"Image structure pointer provided to read J2K must be null.\n");
+		return 1;
 	}
 
 	FILE *fsrc = NULL;

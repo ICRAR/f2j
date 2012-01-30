@@ -1251,9 +1251,9 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 	/* Compression benchmarking is only accurate if all planes of a data cube are read.  Display a message
 	 * informing the user of this if they specify a custom starting plane.
 	 */
-	if (*performCompressionBenchmarking && *startFrame != -1) {
-		fprintf(stderr,"Compression benchmarking results are only accurate if all planes of a data cube\n");
-		fprintf(stderr,"are converted.  Beware of this when interpreting results.\n");
+	if (*performCompressionBenchmarking && (*startFrame != -1  || *firstStoke != -1) ) {
+		fprintf(stderr,"Compression benchmarking results are only accurate if all planes and stokes of a data cube\n");
+		fprintf(stderr,"or data volume are converted.  Beware of this when interpreting results.\n");
 	}
 
 	return 0;

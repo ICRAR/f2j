@@ -1380,7 +1380,7 @@ int main(int argc, char *argv[]) {
 			// If both specified start and end stokes are invalid, read all stokes.
 			else {
 				startStoke = 1;
-				endStoke = info.depth;
+				endStoke = info.stokes;
 			}
 		}
 		else {
