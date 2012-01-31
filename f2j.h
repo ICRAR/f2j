@@ -142,6 +142,12 @@ typedef enum {
 	NEGATIVE_LINEAR /** Inverse image from linear scale. */,
 	RAW /** Convert raw values to image intensities.  Only defined for FITS files containing short/byte data.  If raw data is signed, it will be shifted to be unsigned.  */,
 	NEGATIVE_RAW /** Inverse image from raw transform. */,
+	SQRT /** Square root scale. */,
+	NEGATIVE_SQRT /** Inverse image from square root scale. */,
+	SQUARED /** Squared scale. */,
+	NEGATIVE_SQUARED /** Inverse image from squared scale. */,
+	POWER /** Power scale. */,
+	NEGATIVE_POWER /** Inverse image from power scale. */,
 	DEFAULT /** Default transform to use if no transform is explicitly specified.  This will depend on the FITS data type.  */
 } transform;
 

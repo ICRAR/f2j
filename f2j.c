@@ -66,7 +66,8 @@ void displayHelp() {
 	fprintf(stdout,"-suffix      : suffix to be appended to output file names\n\n");
 
 	fprintf(stdout,"-A           : transform to perform on raw FITS data (such as LOG, NEGATIVE_LOG, RAW, \n");
-	fprintf(stdout,"               NEGATIVE_RAW, LINEAR, NEGATIVE_LINEAR).  Not all transforms are supported \n");
+	fprintf(stdout,"               NEGATIVE_RAW, LINEAR, NEGATIVE_LINEAR, SQRT, NEGATIVE_SQRT, POWER, \n");
+	fprintf(stdout,"               NEGATIVE_POWER, SQUARED, NEGATIVE_SQUARED).  Not all transforms are supported \n");
 	fprintf(stdout,"               for all FITS file types.\n\n");
 
 	fprintf(stdout,"-LL          : write losslessly compressed JPEG 2000 image(s) in addition to the \n");
@@ -83,7 +84,7 @@ void displayHelp() {
 	fprintf(stdout,"-S2          : last stoke of data volume to convert.  Must be accompanied with -S2.\n\n");
 
 	fprintf(stdout,"-CB          : perform compression benchmarking.  Only produces accurate results if\n");
-	fprintf(stdout,"               all planes of a data cube are converted.\n\n");
+	fprintf(stdout,"               all planes and stokes of a data cube are converted.\n\n");
 
 	fprintf(stdout,"-QB          : perform and display all quality benchmarks.  Benchmarks are calculated for each\n");
 	fprintf(stdout,"               plane.  Takes precedence over -QB_* options specifying individual tests.\n\n");
@@ -551,6 +552,127 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			}
 
 			if (transform == NEGATIVE_LINEAR) {
+				imageData[ii] = 65535 - imageData[ii];
+			}
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
+		}
+
+		return 0;
+	}
+	else if (transform == SQRT || transform == NEGATIVE_SQRT) {
+		// Scale factor.
+		double scale = 0.0;
+
+		if (datamin != datamax) {
+			scale = 65535.0/sqrt(datamax-datamin);
+		}
+
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin));
+
+			if (imageData[ii] < 0) {
+				imageData[ii] = 0;
+			}
+			else if (imageData[ii] > 65535) {
+				imageData[ii] = 65535;
+			}
+
+			if (transform == NEGATIVE_SQRT) {
+				imageData[ii] = 65535 - imageData[ii];
+			}
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
+		}
+
+		return 0;
+	}
+	else if (transform == SQUARED || transform == NEGATIVE_SQUARED) {
+		// Scale factor.
+		double scale = 0.0;
+
+		if (datamin != datamax) {
+			scale = 65535.0/( (datamax-datamin)*(datamax-datamin) );
+		}
+
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin));
+
+			if (imageData[ii] < 0) {
+				imageData[ii] = 0;
+			}
+			else if (imageData[ii] > 65535) {
+				imageData[ii] = 65535;
+			}
+
+			if (transform == NEGATIVE_SQUARED) {
+				imageData[ii] = 65535 - imageData[ii];
+			}
+
+			// Update index for vertical flipping.
+			index++;
+			dif++;
+
+			if (dif >= width) {
+				dif = 0;
+				index -= 2*width;
+			}
+		}
+
+		return 0;
+	}
+	else if (transform == POWER || transform == NEGATIVE_POWER) {
+		// Scale factor.
+		double scale = 0.0;
+
+		if (datamin != datamax) {
+			scale = 65535.0/( exp(datamax) - exp(datamin) );
+		}
+
+		// Offset.
+		double offset = 0.0;
+
+		if (datamin != datamax) {
+			offset = 65535.0 * exp(datamin) / ( exp(datamin) - exp(datamax) );
+		}
+
+		// Variables that enable us to flip the image vertically as we read it in.
+		size_t index = len-width;
+		size_t dif = 0;
+
+		for (ii=0; ii<len; ii++) {
+			imageData[ii] = (int) (scale * exp(rawData[index]) + offset);
+
+			if (imageData[ii] < 0) {
+				imageData[ii] = 0;
+			}
+			else if (imageData[ii] > 65535) {
+				imageData[ii] = 65535;
+			}
+
+			if (transform == NEGATIVE_POWER) {
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
@@ -1464,7 +1586,7 @@ int main(int argc, char *argv[]) {
 
 		// Print out compression info in the format
 		// [original FITS file name] [size of compressed files(s)] [size of FITS file] [compression rate]
-		fprintf(stdout,"[FITS file] [size of compressed JPEG 2000 image(s)] [size of FITS file] [compression rate]\n");
+		fprintf(stdout,"[FITS file] [size of compressed JPEG 2000 image(s)] [size of FITS file] [compression ratio]\n");
 		fprintf(stdout,"%s %llu %llu %f\n",ffname,(unsigned long long)compressedFileSize,(unsigned long long)fitsSize,((double)compressedFileSize)/((double)fitsSize));
 	}
 

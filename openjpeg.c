@@ -537,6 +537,24 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 				else if (strcasecmp(transformString,"NEGATIVE_RAW") == 0) {
 					*transform = NEGATIVE_RAW;
 				}
+				else if (strcasecmp(transformString,"SQRT") == 0) {
+					*transform = SQRT;
+				}
+				else if (strcasecmp(transformString,"NEGATIVE_SQRT") == 0) {
+					*transform = NEGATIVE_SQRT;
+				}
+				else if (strcasecmp(transformString,"SQUARED") == 0) {
+					*transform = SQUARED;
+				}
+				else if (strcasecmp(transformString,"NEGATIVE_SQUARED") == 0) {
+					*transform = NEGATIVE_SQUARED;
+				}
+				else if (strcasecmp(transformString,"POWER") == 0) {
+					*transform = POWER;
+				}
+				else if (strcasecmp(transformString,"NEGATIVE_POWER") == 0) {
+					*transform = NEGATIVE_POWER;
+				}
 				else {
 					fprintf(stderr,"Unknown transform specified: %s.  Using default instead.\n",opj_optarg);
 				}
