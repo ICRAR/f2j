@@ -37,6 +37,7 @@
 							<tool command="gcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser" id="cdt.managedbuild.tool.gnu.cross.c.linker.842349277" name="Cross GCC Linker" superClass="cdt.managedbuild.tool.gnu.cross.c.linker">
 								<option id="gnu.c.link.option.libs.1938033372" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="cfitsio"/>
+									<listOptionValue builtIn="false" value="gsl"/>
 									<listOptionValue builtIn="false" value="openjpeg"/>
 								</option>
 								<option id="gnu.c.link.option.paths.1875655072" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
@@ -92,6 +93,7 @@
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.linker.2112539354" name="Cross GCC Linker" superClass="cdt.managedbuild.tool.gnu.cross.c.linker">
 								<option id="gnu.c.link.option.libs.609877281" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="cfitsio"/>
+									<listOptionValue builtIn="false" value="gsl"/>
 									<listOptionValue builtIn="false" value="openjpeg"/>
 								</option>
 								<option id="gnu.c.link.option.paths.1021865106" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">

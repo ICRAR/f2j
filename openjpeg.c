@@ -292,12 +292,19 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * value will be interpreted as a single stoke to read.
  * @param lastStoke Last stoke of data volume to read.  Ignored for 2D or 3D images.  Will only be
  * modified if the S2 parameter is present.
+ * @param noiseDev Reference to an integer specifying the standard deviation of Gaussian noise (with
+ * mean 0) to be added to image pixel intensities.  If the definition of noise is removed from f2j.h,
+ * this parameter will disappear.  Will not be changed unless the -noise command line parameter is present.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
 int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, transform *transform, bool *writeUncompressed,
 		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking,
-		long *firstStoke, long *lastStoke) {
+		long *firstStoke, long *lastStoke
+#ifdef noise
+		,int *noiseDev
+#endif
+		) {
 	int i,j,totlen,c;
 	opj_option_t long_option[]={
 		{"ImgDir",REQ_ARG, NULL ,'z'},
@@ -325,6 +332,9 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"suffix",REQ_ARG, NULL, 'O'},
 		{"CB",NO_ARG,NULL,'g'},
 		{"LL",NO_ARG, NULL,'l'}
+#ifdef noise
+		,{"noise",REQ_ARG, NULL, '1'}
+#endif
 	};
 
 	/* parse the command line */
@@ -332,6 +342,9 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 #ifdef USE_JPWL
 		"W:"
 #endif /* USE_JPWL */
+#ifdef noise
+		"1:"
+#endif
 		"h";
 
 	totlen=sizeof(long_option);
@@ -350,6 +363,15 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 				*writeUncompressed = true;
 			}
 			break;
+
+#ifdef noise
+			/* Gaussian noise standard deviation to add to image.  */
+			case '1':
+			{
+				*noiseDev = atoi(opj_optarg);
+			}
+			break;
+#endif
 
 			/* Suffix to be appended to the end of written filenames. */
 			case 'O':

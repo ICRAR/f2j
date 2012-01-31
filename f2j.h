@@ -79,6 +79,14 @@
 #ifndef F2J_H_
 #define F2J_H_
 
+/**
+ * Do we want to be able to add (Gaussian) noise to an image?  Delete this definition
+ * if this is not desired.  Adding noise adds overhead to the FITS -> JPEG 2000 conversion
+ * process and is a somewhat specialised function, so it can be removed for greater speed
+ * if not desired.
+ */
+#define noise
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +94,13 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <openjpeg-1.99/openjpeg.h>
+
+#ifdef noise
+#include <time.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#endif
+
 #include "fitsio.h"
 
 /**
@@ -156,7 +171,11 @@ typedef enum {
 extern void displayHelp();
 int createJPEG2000Image(char *,OPJ_CODEC_FORMAT,opj_cparameters_t *,opj_image_t *);
 // openjpeg.c
-extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *, long *, long *);
+extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *, long *, long *
+#ifdef noise
+		, int *
+#endif
+);
 void encode_help_display();
 // benchmark.c
 extern int performQualityBenchmarking(opj_image_t *,char *,quality_benchmark_info *,OPJ_CODEC_FORMAT);

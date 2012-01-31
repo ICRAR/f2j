@@ -14,6 +14,14 @@
 
 #include "f2j.h"
 
+#ifdef noise
+/**
+ * Standard deviation of Gaussian noise to be generated in image.  Will be 0 unless
+ * otherwise specified by the user on the command line.
+ */
+int gaussianNoiseStdDeviation = 0;
+#endif
+
 /**
  * Macro to perform the FITS read operation and then a specified transformation on
  * data from a FITS file.
@@ -101,6 +109,10 @@ void displayHelp() {
 
 	fprintf(stdout,"-QB_RES      : write residual image\n\n");
 
+#ifdef noise
+	fprintf(stdout,"-noise       : standard deviation of Gaussian noise to add to image pixel intensities \n\n");
+#endif
+
 	fprintf(stdout,"JPEG 2000 Compression Options:\n");
 	fprintf(stdout,"------------------------------\n\n");
 
@@ -109,6 +121,44 @@ void displayHelp() {
 
 	exit(EXIT_FAILURE);
 }
+
+#ifdef noise
+/**
+ * Function that returns a noise value that may be added to a pixel intensity.  These values
+ * are normally (Gaussian) distributed with a mean of 0 and standard deviation specified by
+ * the user at the command line.  If no noise value is specified at the command line, this
+ * function will always return 0.
+ */
+int getGaussianNoise() {
+	// Always return 0 if the specified Gaussian noise distribution is 0.
+	if (gaussianNoiseStdDeviation == 0) {
+		return 0;
+	}
+	else {
+		// Random number generator.
+		static gsl_rng *r = NULL;
+
+		if (r == NULL) {
+			// Allocate/initialise random number generator.
+			// Using the Mersenne Twister - this could be changed if necessary.
+			r = gsl_rng_alloc(gsl_rng_mt19937);
+
+			// Check allocation was successful.
+			if (r == NULL) {
+				fprintf(stderr,"Unable to allocate memory for random number generator.\n");
+				exit(EXIT_FAILURE);
+			}
+
+			// Seed random number generator with system time.
+			// Maybe the seed should be fixed in the name of getting reproducible results?
+			gsl_rng_set(r,time(NULL));
+		}
+
+		// Return noise value.
+		return gsl_ran_gaussian_ziggurat(r,(double)gaussianNoiseStdDeviation);
+	}
+}
+#endif
 
 /**
  * Function for transforming a raw array of data from a FITS file (in the form of
@@ -500,7 +550,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 			// Read the flipped image pixel.
-			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) );
+			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) )
+#ifdef noise
+				+ getGaussianNoise()
+#endif
+			;
 
 			// Shouldn't get values outside this range, but just in case.
 			if (imageData[ii] < 0) {
@@ -542,7 +596,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (rawData[index] * scale);
+			imageData[ii] = (int) (rawData[index] * scale)
+#ifdef noise
+				+ getGaussianNoise()
+#endif
+			;
 
 			if (imageData[ii] < 0) {
 				imageData[ii] = 0;
@@ -580,7 +638,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin));
+			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin))
+#ifdef noise
+				+ getGaussianNoise()
+#endif
+			;
 
 			if (imageData[ii] < 0) {
 				imageData[ii] = 0;
@@ -618,7 +680,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin));
+			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin))
+#ifdef noise
+				+ getGaussianNoise()
+#endif
+			;
 
 			if (imageData[ii] < 0) {
 				imageData[ii] = 0;
@@ -663,7 +729,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) (scale * exp(rawData[index]) + offset);
+			imageData[ii] = (int) (scale * exp(rawData[index]) + offset)
+#ifdef noise
+				+ getGaussianNoise()
+#endif
+			;
 
 			if (imageData[ii] < 0) {
 				imageData[ii] = 0;
@@ -1402,7 +1472,11 @@ int main(int argc, char *argv[]) {
 
 	// Parse command line parameters.
 	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,
-			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke);
+			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke
+#ifdef noise
+			,&gaussianNoiseStdDeviation
+#endif
+	);
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
