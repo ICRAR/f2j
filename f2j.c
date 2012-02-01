@@ -49,6 +49,33 @@ double gaussianNoisePctStdDeviation = 0.0;
 		}\
 	}\
 }
+
+/**
+ * Macro to truncate image data values into a 16 bit unsigned range.
+ */
+#define FIT_TO_RANGE_16_BIT {\
+	if (imageData[ii] < 0) {\
+		imageData[ii] = 0;\
+	}\
+	\
+	if (imageData[ii] > 65535) {\
+		imageData[ii] = 65535;\
+	}\
+}
+
+/**
+ * Macro to truncate image data values into an 8 bit unsigned range.
+ */
+#define FIT_TO_RANGE_8_BIT {\
+	if (imageData[ii] < 0) {\
+		imageData[ii] = 0;\
+	}\
+	\
+	if (imageData[ii] > 255) {\
+		imageData[ii] = 255;\
+	}\
+}
+
 #endif // noise
 
 /**
@@ -318,7 +345,15 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index] + 32768;
+			imageData[ii] = (int) rawData[index] + 32768
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_16_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -339,7 +374,15 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 32767 - (int) rawData[index];
+			imageData[ii] = 32767 - (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_16_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -390,7 +433,15 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// Simple raw copying.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index];
+			imageData[ii] = (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_16_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -411,7 +462,15 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 65535 - (int) rawData[index];
+			imageData[ii] = 65535 - (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_16_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -462,7 +521,15 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Simple raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index];
+			imageData[ii] = (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_8_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -483,7 +550,15 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Invert raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 255 - (int) rawData[index];
+			imageData[ii] = 255 - (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_8_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -534,7 +609,15 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Take raw data, shift it to be unsigned.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 128 + (int) rawData[index];
+			imageData[ii] = 128 + (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_8_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
@@ -555,7 +638,15 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Invert raw transform.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 127 + (int) rawData[index];
+			imageData[ii] = 127 + (int) rawData[index]
+#ifdef noise
+				+ getIntegerGaussianNoise()
+#endif
+			;
+
+#ifdef noise
+			FIT_TO_RANGE_8_BIT;
+#endif
 
 			// Update index for vertical flipping.
 			index++;
