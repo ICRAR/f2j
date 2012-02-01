@@ -17,10 +17,39 @@
 #ifdef noise
 /**
  * Standard deviation of Gaussian noise to be generated in image.  Will be 0 unless
- * otherwise specified by the user on the command line.
+ * otherwise specified by the user on the command line.  The noise defined by this
+ * parameter will be added to the image AFTER the raw FITS values have been transformed
+ * to a JPEG 2000 pixel intensity.
  */
 int gaussianNoiseStdDeviation = 0;
-#endif
+
+/**
+ * Percentage standard deviation of Gaussian noise to be generated in image.  Will be
+ * 0.0 unless otheriwse specified by the user on the command line.  The noise defined by
+ * this parameter will be added to the raw FITS values before they are transformed into
+ * JPEG 2000 pixel intensities.  This is a percentage of the difference between the greatest
+ * and least values in the raw FITS data.
+ */
+double gaussianNoisePctStdDeviation = 0.0;
+
+/**
+ * Macro to add Gaussian noise to raw floating point data and ensure that it still
+ * remains within its known minimum and maximum values.
+ */
+#define ADD_GAUSSIAN_NOISE_TO_RAW_VALUES {\
+	if (gaussianNoisePctStdDeviation >= 0.0000001 || gaussianNoisePctStdDeviation <= -0.0000001) {\
+		rawData[index] += (datamax-datamin) * getPctGaussianNoise();\
+		\
+		if (rawData[index] > datamax) {\
+			rawData[index] = datamax;\
+		}\
+		\
+		if (rawData[index] < datamin) {\
+			rawData[index] = datamin;\
+		}\
+	}\
+}
+#endif // noise
 
 /**
  * Macro to perform the FITS read operation and then a specified transformation on
@@ -128,8 +157,10 @@ void displayHelp() {
  * are normally (Gaussian) distributed with a mean of 0 and standard deviation specified by
  * the user at the command line.  If no noise value is specified at the command line, this
  * function will always return 0.
+ *
+ * @return Gaussian random variate with mean 0 and standard deviation gaussianNoiseStdDeviation
  */
-int getGaussianNoise() {
+int getIntegerGaussianNoise() {
 	// Always return 0 if the specified Gaussian noise distribution is 0.
 	if (gaussianNoiseStdDeviation == 0) {
 		return 0;
@@ -156,6 +187,47 @@ int getGaussianNoise() {
 
 		// Return noise value.
 		return gsl_ran_gaussian_ziggurat(r,(double)gaussianNoiseStdDeviation);
+	}
+}
+
+/**
+ * Function that returns a floating point value with mean 0.  These values are normally
+ * (Gaussian) distributed with a standard deviation specified by a user command line
+ * parameter indicating a percentage (of the difference between the minimum and maximum
+ * raw FITS values).  If no such value is specified at the command line, this function
+ * will always return 0.0.
+ *
+ * @return Gaussian random variate with mean 0 and standard deviation gaussianNoisePctStdDeviation
+ */
+double getPctGaussianNoise() {
+	// Always return 0.0 if the specified Gaussian noise distribution is close to 0.
+	if (gaussianNoisePctStdDeviation < 0.0000001 && gaussianNoisePctStdDeviation > -0.0000001) {
+		return 0.0;
+	}
+	else {
+		// Random number generator.
+		static gsl_rng *r = NULL;
+
+		if (r == NULL) {
+			// Allocate/initialise random number generator.
+			// Using the Mersenne Twister - this could be changed if necessary.
+			r = gsl_rng_alloc(gsl_rng_mt19937);
+
+			// Check allocation was successful.
+			if (r == NULL) {
+				fprintf(stderr,"Unable to allocate memory for floating point random number generator.\n");
+				exit(EXIT_FAILURE);
+			}
+
+			// Seed random number generator with system time.
+			// Maybe the seed should be fixed in the name of getting reproducible results?
+			// Offset time by 100 to ensure this does not match the random number generator
+			// in getIntegerGaussianNoise().
+			gsl_rng_set(r,time(NULL)+100);
+		}
+
+		// Return noise value.
+		return gsl_ran_gaussian_ziggurat(r,gaussianNoisePctStdDeviation/100.0);
 	}
 }
 #endif
@@ -549,10 +621,13 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+#endif
 			// Read the flipped image pixel.
 			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) )
 #ifdef noise
-				+ getGaussianNoise()
+				+ getIntegerGaussianNoise()
 #endif
 			;
 
@@ -596,9 +671,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+#endif
 			imageData[ii] = (int) (rawData[index] * scale)
 #ifdef noise
-				+ getGaussianNoise()
+				+ getIntegerGaussianNoise()
 #endif
 			;
 
@@ -638,9 +716,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+#endif
 			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin))
 #ifdef noise
-				+ getGaussianNoise()
+				+ getIntegerGaussianNoise()
 #endif
 			;
 
@@ -680,9 +761,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+#endif
 			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin))
 #ifdef noise
-				+ getGaussianNoise()
+				+ getIntegerGaussianNoise()
 #endif
 			;
 
@@ -729,9 +813,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		size_t dif = 0;
 
 		for (ii=0; ii<len; ii++) {
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+#endif
 			imageData[ii] = (int) (scale * exp(rawData[index]) + offset)
 #ifdef noise
-				+ getGaussianNoise()
+				+ getIntegerGaussianNoise()
 #endif
 			;
 
@@ -1474,7 +1561,7 @@ int main(int argc, char *argv[]) {
 	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,
 			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke
 #ifdef noise
-			,&gaussianNoiseStdDeviation
+			,&gaussianNoiseStdDeviation,&gaussianNoisePctStdDeviation
 #endif
 	);
 

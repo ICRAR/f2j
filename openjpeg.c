@@ -295,6 +295,11 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * @param noiseDev Reference to an integer specifying the standard deviation of Gaussian noise (with
  * mean 0) to be added to image pixel intensities.  If the definition of noise is removed from f2j.h,
  * this parameter will disappear.  Will not be changed unless the -noise command line parameter is present.
+ * @param noisePct Reference to a double specifying the percentage (of the difference between the minimum
+ * and maximum raw FITS values) standard deviation of Gaussian noise (with mean 0.0) to be added to raw
+ * FITS values (before transforming them into pixel intensities).  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.  Will not be changed unless the -noise_pct command line
+ * parameter is present.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
@@ -302,7 +307,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking,
 		long *firstStoke, long *lastStoke
 #ifdef noise
-		,int *noiseDev
+		,int *noiseDev, double *noisePct
 #endif
 		) {
 	int i,j,totlen,c;
@@ -333,7 +338,8 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"CB",NO_ARG,NULL,'g'},
 		{"LL",NO_ARG, NULL,'l'}
 #ifdef noise
-		,{"noise",REQ_ARG, NULL, '1'}
+		,{"noise",REQ_ARG, NULL, '1'},
+		{"noise_pct",REQ_ARG, NULL, '2'}
 #endif
 	};
 
@@ -343,7 +349,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		"W:"
 #endif /* USE_JPWL */
 #ifdef noise
-		"1:"
+		"1:2:"
 #endif
 		"h";
 
@@ -369,6 +375,13 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case '1':
 			{
 				*noiseDev = atoi(opj_optarg);
+			}
+			break;
+
+			/* Gaussian noise (percentage) to add to raw FITS values. */
+			case '2':
+			{
+				*noisePct = atof(opj_optarg);
 			}
 			break;
 #endif

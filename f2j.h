@@ -173,7 +173,7 @@ int createJPEG2000Image(char *,OPJ_CODEC_FORMAT,opj_cparameters_t *,opj_image_t 
 // openjpeg.c
 extern int parse_cmdline_encoder(int,char **,opj_cparameters_t *,transform *,bool *,long *,long *,quality_benchmark_info *,bool *, long *, long *
 #ifdef noise
-		, int *
+		, int *, double *
 #endif
 );
 void encode_help_display();
