@@ -74,6 +74,12 @@
  * PERSONS OR PROPERTY OR OTHERWISE, AND WHETHER OR NOT LOSS WAS SUSTAINED
  * FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR
  * SERVICES PROVIDED HEREUNDER.
+ *
+ * <b>GSL</b>
+ *
+ * The <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library</a> is
+ * used by this program, which is distributed under the
+ * <a href="http://www.gnu.org/copyleft/gpl.html">GNU General Public License</a> (GPL).
  */
 
 #ifndef F2J_H_

@@ -51,28 +51,19 @@ double gaussianNoisePctStdDeviation = 0.0;
 }
 
 /**
- * Macro to truncate image data values into a 16 bit unsigned range.
+ * Macro to truncate data values so that they lie inside a particular range.
+ *
+ * @param min Smallest permissible value.
+ * @param max Largest permissible value.
+ * @param var Variable to truncate.
  */
-#define FIT_TO_RANGE_16_BIT {\
-	if (imageData[ii] < 0) {\
-		imageData[ii] = 0;\
+#define FIT_TO_RANGE(min,max,var) {\
+	if (var < min) {\
+		var = min;\
 	}\
 	\
-	if (imageData[ii] > 65535) {\
-		imageData[ii] = 65535;\
-	}\
-}
-
-/**
- * Macro to truncate image data values into an 8 bit unsigned range.
- */
-#define FIT_TO_RANGE_8_BIT {\
-	if (imageData[ii] < 0) {\
-		imageData[ii] = 0;\
-	}\
-	\
-	if (imageData[ii] > 255) {\
-		imageData[ii] = 255;\
+	if (var > max) {\
+		var = max;\
 	}\
 }
 
@@ -352,7 +343,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_16_BIT;
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -381,7 +372,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_16_BIT;
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -440,7 +431,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_16_BIT;
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -469,7 +460,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_16_BIT;
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -528,7 +519,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_8_BIT;
+			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -557,7 +548,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_8_BIT;
+			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -616,7 +607,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_8_BIT;
+			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
@@ -645,7 +636,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			;
 
 #ifdef noise
-			FIT_TO_RANGE_8_BIT;
+			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
 			// Update index for vertical flipping.
