@@ -292,9 +292,18 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * value will be interpreted as a single stoke to read.
  * @param lastStoke Last stoke of data volume to read.  Ignored for 2D or 3D images.  Will only be
  * modified if the S2 parameter is present.
- * @param noiseDev Reference to an integer specifying the standard deviation of Gaussian noise (with
- * mean 0) to be added to image pixel intensities.  If the definition of noise is removed from f2j.h,
- * this parameter will disappear.  Will not be changed unless the -noise command line parameter is present.
+ * @param noiseDB Reference to a double specifying the PSNR of the image after (Gaussian noise) has been added.
+ * Will not be changed unless the -noise command line parameter is present.
+ *  If the definition of noise is removed from f2j.h, this parameter will disappear.
+ * @param noiseSet Reference to a boolean specifying if the noiseDB parameter has been set by the user.  Assumed
+ * to have been initialised to false.  Will be set to true if the -noise command line parameter is present.
+ * If the definition of noise is removed from f2j.h, this parameter will disappear.
+ * @param seed Seed for the random number generator used to generate the noise specified by noiseDB.  Will be
+ * ignored if the -noise command line parameter is not present.  If -noise is present but no seed is specified
+ * the RNG will be seeded with the system clock time.  Will be altered if the -seed command line parameter is
+ * present.  If the definition of noise is removed from f2j.h, this parameter will disappear.
+ * @param seedSet Boolean specifying whether or not the -seed parameter is present.
+ * If the definition of noise is removed from f2j.h, this parameter will disappear.
  * @param noisePct Reference to a double specifying the percentage (of the difference between the minimum
  * and maximum raw FITS values) standard deviation of Gaussian noise (with mean 0.0) to be added to raw
  * FITS values (before transforming them into pixel intensities).  If the definition of noise is removed
@@ -307,7 +316,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking,
 		long *firstStoke, long *lastStoke
 #ifdef noise
-		,int *noiseDev, double *noisePct
+		, double *noiseDB, bool *noiseSet, unsigned long *seed, bool *seedSet, double *noisePct
 #endif
 		) {
 	int i,j,totlen,c;
@@ -339,7 +348,8 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		{"LL",NO_ARG, NULL,'l'}
 #ifdef noise
 		,{"noise",REQ_ARG, NULL, '1'},
-		{"noise_pct",REQ_ARG, NULL, '2'}
+		{"noise_pct",REQ_ARG, NULL, '2'},
+		{"seed",REQ_ARG, NULL, '3'}
 #endif
 	};
 
@@ -374,7 +384,8 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			/* Gaussian noise standard deviation to add to image.  */
 			case '1':
 			{
-				*noiseDev = atoi(opj_optarg);
+				*noiseDB = atof(opj_optarg);
+				*noiseSet = true;
 			}
 			break;
 
@@ -382,6 +393,18 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			case '2':
 			{
 				*noisePct = atof(opj_optarg);
+			}
+			break;
+
+			/* Random number seed to generate Gaussian noise to add to image.  */
+			case '3':
+			{
+				*seed = strtoul(opj_optarg,NULL,10);
+
+				// Check conversion was successful.
+				if (errno != EINVAL) {
+					*seedSet = true;
+				}
 			}
 			break;
 #endif
@@ -519,32 +542,28 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 			/* What is the first stoke of the data volume to read? */
 			case 'a':
 			{
-				char *end;
-				*firstStoke = strtol(opj_optarg,&end,10);
+				*firstStoke = strtol(opj_optarg,NULL,10);
 			}
 			break;
 
 			/*What is the last stoke of the data volume to read? */
 			case 'e':
 			{
-				char *end;
-				*lastStoke = strtol(opj_optarg,&end,10);
+				*lastStoke = strtol(opj_optarg,NULL,10);
 			}
 			break;
 
 			/* What is the first frame of the data cube to read? */
 			case 'x':
 			{
-				char *end;
-				*startFrame = strtol(opj_optarg,&end,10);
+				*startFrame = strtol(opj_optarg,NULL,10);
 			}
 			break;
 
 			/* What is the last frame of the data cube to read? */
 			case 'y':
 			{
-				char *end;
-				*endFrame = strtol(opj_optarg,&end,10);
+				*endFrame = strtol(opj_optarg,NULL,10);
 			}
 			break;
 

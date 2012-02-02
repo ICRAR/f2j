@@ -16,14 +16,6 @@
 
 #ifdef noise
 /**
- * Standard deviation of Gaussian noise to be generated in image.  Will be 0 unless
- * otherwise specified by the user on the command line.  The noise defined by this
- * parameter will be added to the image AFTER the raw FITS values have been transformed
- * to a JPEG 2000 pixel intensity.
- */
-int gaussianNoiseStdDeviation = 0;
-
-/**
  * Percentage standard deviation of Gaussian noise to be generated in image.  Will be
  * 0.0 unless otheriwse specified by the user on the command line.  The noise defined by
  * this parameter will be added to the raw FITS values before they are transformed into
@@ -171,23 +163,90 @@ void displayHelp() {
 
 #ifdef noise
 /**
+ * Macro for calling the function getIntegerGaussianNoise() (below) with all its arguments
+ * set to null.  Generally, the arguments to this function only need to be set when initialising
+ * it (with pixel intensities, random number seeds, etc).  The number of arguments might change
+ * (to allow additional parameters to be set) - this macro means that when performing a noise
+ * addition to a pixel, the calling function doesn't need to know how many NULLs should be
+ * specified.
+ */
+#define GET_INTEGER_GAUSSIAN_NOISE() getIntegerGaussianNoise(NULL,NULL,NULL)
+
+/**
  * Function that returns a noise value that may be added to a pixel intensity.  These values
  * are normally (Gaussian) distributed with a mean of 0 and standard deviation specified by
  * the user at the command line.  If no noise value is specified at the command line, this
  * function will always return 0.
  *
+ * To generate (non-zero) noise, this function must be initialised with the maximum pixel
+ * intensity that will appear in the image (255/65535 respectively for images scaled to occupy
+ * the full intensity range of 8/16 bit images respectively) and the PSNR (in DB) of the image
+ * after noise has been added.  An optional seed for the random number generator may also be
+ * specified.  Until noiseDB and maxIntensity have been specified, the function will only return
+ * 0.  Until both these values are set, any specified values of noiseDB, maxIntensity or seed will
+ * be stored (overwriting any previous stored values) with each function call.  Once these two
+ * values are specified, the parameters to the function are ignored and random variates will be
+ * return when it is called.
+ *
+ * If no seed is specified, the random number generator is seeded with the system clock.
+ *
+ * @param noiseDB PSNR (in DB) of image after noise has been added (used to initialise function).
+ * @param maxIntensity Maximum pixel intensity in the image (used to initialise function).
+ * @param seed Need for random number generator (used to initialise function).
+ *
  * @return Gaussian random variate with mean 0 and standard deviation gaussianNoiseStdDeviation
  */
-int getIntegerGaussianNoise() {
-	// Always return 0 if the specified Gaussian noise distribution is 0.
-	if (gaussianNoiseStdDeviation == 0) {
-		return 0;
+int getIntegerGaussianNoise(double *noiseDB, int *maxIntensity, unsigned long int *seed) {
+	// Have the static variables been properly setup to return Gaussian noise?
+	static bool initialised = false;
+
+	// PSNR (in dB) of image after noise has been added.
+	static double db = 0.0;
+	static bool noiseSet = false;
+
+	// Standard deviation of noise to be generated (as a pixel intensity).
+	static double noiseDev = 0.0;
+
+	// Maximum pixel intensity in image.
+	static int maxPixelIntensity = 0;
+	static bool maxIntensitySet = false;
+
+	// Random number generator seed.
+	static unsigned long generatorSeed = 0;
+	static bool seedSet = false;
+
+	// Random number generator.
+	static gsl_rng *r = NULL;
+
+	if (initialised) {
+		return gsl_ran_gaussian_ziggurat(r,noiseDev);
 	}
 	else {
-		// Random number generator.
-		static gsl_rng *r = NULL;
+		// Set random number generator seed.
+		if (seed != NULL) {
+			generatorSeed = *seed;
+			seedSet = true;
+		}
 
-		if (r == NULL) {
+		// Set noise (in DB) to be added to image.
+		if (noiseDB != NULL) {
+			db = *noiseDB;
+			noiseSet = true;
+		}
+
+		// Set maximum intensity of pixels in image.
+		if (maxIntensity != NULL) {
+			maxPixelIntensity = *maxIntensity;
+			maxIntensitySet = true;
+		}
+
+		// Function becomes initialised to start producing random variates at
+		// the point when the amount of noise (in DB) to be added and the maximum
+		// image pixel intensity are set.
+		if (noiseSet && maxIntensitySet) {
+			initialised = true;
+
+			// Create random number generator.
 			// Allocate/initialise random number generator.
 			// Using the Mersenne Twister - this could be changed if necessary.
 			r = gsl_rng_alloc(gsl_rng_mt19937);
@@ -198,13 +257,20 @@ int getIntegerGaussianNoise() {
 				exit(EXIT_FAILURE);
 			}
 
-			// Seed random number generator with system time.
-			// Maybe the seed should be fixed in the name of getting reproducible results?
-			gsl_rng_set(r,time(NULL));
+			// See if a particular seed was specified, otherwise seed with system time.
+			if (seedSet == true) {
+				gsl_rng_set(r,generatorSeed);
+			}
+			else {
+				gsl_rng_set(r,time(NULL));
+			}
+
+			// Calculate standard deviation for Gaussian noise distribution.
+			noiseDev = ((double) maxPixelIntensity) * exp(-0.05 * db);
 		}
 
-		// Return noise value.
-		return gsl_ran_gaussian_ziggurat(r,(double)gaussianNoiseStdDeviation);
+		// Return 0 in the case
+		return 0;
 	}
 }
 
@@ -338,7 +404,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[index] + 32768
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -367,7 +433,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 32767 - (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -426,7 +492,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -455,7 +521,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 65535 - (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -514,7 +580,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -543,7 +609,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 255 - (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -602,7 +668,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 128 + (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -631,7 +697,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 127 + (int) rawData[index]
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -709,7 +775,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			// Read the flipped image pixel.
 			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) )
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -758,7 +824,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #endif
 			imageData[ii] = (int) (rawData[index] * scale)
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -803,7 +869,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #endif
 			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin))
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -848,7 +914,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #endif
 			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin))
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -900,7 +966,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #endif
 			imageData[ii] = (int) (scale * exp(rawData[index]) + offset)
 #ifdef noise
-				+ getIntegerGaussianNoise()
+				+ GET_INTEGER_GAUSSIAN_NOISE()
 #endif
 			;
 
@@ -1170,6 +1236,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		imageStruct->comps[0].bpp = 8;
 		imageStruct->comps[0].prec = 8;
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 255;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		READ_AND_TRANSFORM(unsigned char,TBYTE,byteImgTransform);
 	}
 	// 16 bit signed integer case
@@ -1184,6 +1256,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			fits_set_bscale(fptr,1.0,0.0,status);
 		}
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		READ_AND_TRANSFORM(short,TSHORT,shortImgTransform);
 	}
 	// 32 bit signed integer case
@@ -1192,6 +1270,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			transform = RAW;
 		}
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		READ_AND_TRANSFORM(int,TLONG,intImgTransform);
 	}
 	// 64 bit signed integer case
@@ -1199,6 +1283,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		if (transform == DEFAULT) {
 			transform = RAW;
 		}
+
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
 
 		READ_AND_TRANSFORM(long long int,TLONGLONG,longLongImgTransform);
 	}
@@ -1257,6 +1347,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			}
 		}
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax,info->width);
 
 		if (transformResult != 0) {
@@ -1281,6 +1377,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		imageStruct->comps[0].bpp = 8;
 		imageStruct->comps[0].prec = 8;
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 255;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		READ_AND_TRANSFORM(signed char,TSBYTE,sByteImgTransform);
 	}
 	// Unsigned short (16 bit integer) case
@@ -1294,6 +1396,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			fits_set_bscale(fptr,1.0,0.0,status);
 		}
 
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
+
 		READ_AND_TRANSFORM(unsigned short,TUSHORT,uShortImgTransform);
 	}
 	// Unsigned 32 bit integer case
@@ -1301,6 +1409,12 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		if (transform == DEFAULT) {
 			transform = RAW;
 		}
+
+#ifdef noise
+		// Define image maximum intensity for noise simulation PSNR calculations.
+		int max = 65535;
+		getIntegerGaussianNoise(NULL,&max,NULL);
+#endif
 
 		READ_AND_TRANSFORM(unsigned int,TULONG,uIntImgTransform);
 	}
@@ -1639,13 +1753,40 @@ int main(int argc, char *argv[]) {
 	// End stoke - last stoke of 4D data volume to read.  Ignored for 2D/3D images.
 	long endStoke = -1;
 
+#ifdef noise
+	// Seed for random number generator.
+	unsigned long seed = 0;
+
+	// Has a RNG seed been set?
+	bool seedSet = false;
+
+	// PSNR of image (in DB) after noise has been added.
+	double noiseDB = 0.0;
+
+	// Has PSNR of image (after noise has been added) been set?
+	bool noiseSet = false;
+#endif
+
 	// Parse command line parameters.
 	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,
 			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke
 #ifdef noise
-			,&gaussianNoiseStdDeviation,&gaussianNoisePctStdDeviation
+			,&noiseDB,&noiseSet,&seed,&seedSet,&gaussianNoisePctStdDeviation
 #endif
 	);
+
+#ifdef noise
+	// Initialise getIntegerGaussianNoise() function.
+	if (noiseSet) {
+		// Set noise.
+		getIntegerGaussianNoise(&noiseDB,NULL,NULL);
+
+		if (seedSet) {
+			// Set seed.
+			getIntegerGaussianNoise(NULL,NULL,&seed);
+		}
+	}
+#endif
 
 	if (result != 0) {
 		fprintf(stderr,"Error parsing command parameters.\n");
