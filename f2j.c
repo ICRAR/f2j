@@ -54,13 +54,20 @@ bool printNoiseBenchmark = false;
  * add the square of this value to a cumulative total.
  *
  * @param max Maximum pixel intensity in the image.
+ * @param noise_min Minimum noise value.  Usually (max+1)/2-1;
+ * @param noise_max Maximum noise value.  Usually -(max+1)/2;
  */
-#define ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(max) {\
+#define ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(max,noise_min,noise_max) {\
 	int oldValue = imageData[ii];\
 	imageData[ii] += GET_INTEGER_GAUSSIAN_NOISE();\
 	FIT_TO_RANGE(0,max,imageData[ii]);\
-	unsigned long long int absDif = (unsigned long long int) (abs(imageData[ii]-oldValue));\
+	int dif = imageData[ii]-oldValue;\
+	unsigned long long int absDif = (unsigned long long int) abs(dif);\
 	squareNoiseSum += absDif*absDif;\
+	if (writeNoiseField) {\
+		noiseData[ii] = dif;\
+		FIT_TO_RANGE(noise_min,noise_max,noiseData[ii]);\
+	}\
 }
 
 /**
@@ -115,9 +122,16 @@ bool printNoiseBenchmark = false;
 	}\
 }
 
+#ifdef noise
+#define TRANSFORM_END ,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField
+#else
+#define TRANSFORM_END
+#endif
+
 /**
  * Macro to perform the FITS read operation and then a specified transformation on
- * data from a FITS file.
+ * data from a FITS file.  Use the TRANSFORM_END definition above, which differs
+ * depending on whether or not noise is defined in f2j.h.
  *
  * @param type primitive type, such as float or double, specifying the type of the array
  * which will contain data read from the FITS file.
@@ -139,13 +153,41 @@ bool printNoiseBenchmark = false;
 		fprintf(stderr,"Error reading frame %ld of image.\n",frame);\
 		return 1;\
 	}\
-	int transformResult = transformFunction(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,info->width);\
+	int transformResult = transformFunction(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,info->width TRANSFORM_END);\
 	\
 	if (transformResult != 0) {\
 		fprintf(stderr,"Specified transform could not be performed.\n");\
 		return 1;\
 	}\
 	free(imageArray);\
+}
+
+/**
+ * Macro to encode an image losslessly.  Requires an integer, 'result' to be defined in the
+ * same scope.  By reading this integer after this macro is run, it may be checked whether
+ * compression was successful.
+ *
+ * @param image opj_image_t image structure that will be written to a
+ * lossless JPEG 2000 file.
+ * @param name String to append to output file name.
+ * @param nameLength Length of the string name.
+ * @param outFileStub Start of output file name.
+ */
+#define ENCODE_LOSSLESSLY(image,name,nameLength,outFileStub) {\
+	OPJ_CODEC_FORMAT losslessCodec = CODEC_JP2;\
+	opj_cparameters_t lossless;\
+	opj_set_default_encoder_parameters(&lossless);\
+	lossless.tcp_mct = 0;\
+	if (lossless.tcp_numlayers == 0) {\
+		lossless.tcp_rates[0] = 0;\
+		lossless.tcp_numlayers++;\
+		lossless.cp_disto_alloc = 1;\
+	}\
+	char losslessFile[stublen + 6 + nameLength];\
+	\
+	sprintf(losslessFile,"%s_" name ".jp2",outFileStub);\
+	\
+	result = createJPEG2000Image(losslessFile,losslessCodec,&lossless,&image);\
 }
 
 /**
@@ -200,10 +242,16 @@ void displayHelp() {
 	fprintf(stdout,"-QB_AE       : perform and display absolute error sum quality benchmark\n");
 	fprintf(stdout,"-QB_SI       : perform and display uncompressed squared intensity sum quality benchmark\n\n");
 
+#ifdef noise
+	fprintf(stdout,"               Note that if -noise is present, quality benchmarks are performed relative to the\n");
+	fprintf(stdout,"               image WITH noise added.\n\n");
+#endif
+
 	fprintf(stdout,"-QB_RES      : write residual image\n\n");
 
 #ifdef noise
 	fprintf(stdout,"-noise       : add Gaussian noise to image pixel intensities to give a specified PSNR\n\n");
+	fprintf(stdout,"-noise_field : write the noise field added as a result of the -noise parameter to a file\n");
 	fprintf(stdout,"-noise_pct   : add Gaussian noise to raw FITS values with a standard deviation specified\n");
 	fprintf(stdout,"               as a percentage of the range of FITS values\n\n");
 #endif
@@ -382,10 +430,20 @@ double getPctGaussianNoise() {
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len - length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -400,10 +458,20 @@ int longLongImgTransform(long long int *rawData, int *imageData, transform trans
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int intImgTransform(int *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int intImgTransform(int *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -418,10 +486,20 @@ int intImgTransform(int *rawData, int *imageData, transform transform, size_t le
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
 	return 1;
 }
@@ -439,10 +517,20 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to shortImgTransform cannot be null or empty.\n");
 		return 1;
@@ -466,7 +554,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			imageData[ii] = (int) rawData[index] + 32768;
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -487,7 +575,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			imageData[ii] = 32767 - (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -516,10 +604,20 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to uShortImgTransform cannot be null or empty.\n");
 		return 1;
@@ -543,7 +641,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			imageData[ii] = (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -564,7 +662,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			imageData[ii] = 65535 - (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -593,10 +691,20 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to byteImgTransform cannot be null or empty.\n");
 		return 1;
@@ -620,7 +728,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 			imageData[ii] = (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255,-128,127);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -640,7 +748,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 		for (ii=0; ii<len; ii++) {
 			imageData[ii] = 255 - (int) rawData[index];
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255,-128,127);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -669,10 +777,20 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
  * @param transform transform to perform on each datum of rawData to get imageData.
  * @param len length of rawData & imageData arrays.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len, size_t width) {
+int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays to sByteImgTransform cannot be null or empty.\n");
 		return 1;
@@ -696,7 +814,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			imageData[ii] = 128 + (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255,-128,127);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -717,7 +835,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			imageData[ii] = 127 + (int) rawData[index];
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255,-128,127);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
@@ -748,10 +866,20 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
  * @param datamin minimum value in rawData.
  * @param datamax maximum value in rawData.
  * @param width width of image.
+ * @param noiseData int array, assumed to be the same length as rawData, to be populated
+ * with grayscale noise value intensities.  Will only be accessed if writeNoiseField is
+ * set to true.  If the definition of noise is removed from f2j.h, this parameter will
+ * disappear.
+ * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
+ * from f2j.h, this parameter will disappear.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
-int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax, size_t width) {
+int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax, size_t width
+#ifdef noise
+		, int *noiseData, bool writeNoiseField
+#endif
+	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
 		fprintf(stderr,"Data arrays in floatDoubleTransform cannot be null or empty.\n");
 		return 1;
@@ -795,7 +923,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			if (transform == NEGATIVE_LOG) {
@@ -834,7 +962,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			if (transform == NEGATIVE_LINEAR) {
@@ -869,7 +997,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			if (transform == NEGATIVE_SQRT) {
@@ -904,7 +1032,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			if (transform == NEGATIVE_SQUARED) {
@@ -946,7 +1074,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535,-32768,32767);
 #endif
 
 			if (transform == NEGATIVE_POWER) {
@@ -1117,10 +1245,20 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  * @param info Pointer to a cube_info structure containing data on the image being read.
  * @param status Pointer to CFITSIO status integer.  The value must have been initialised to 0 by the time
  * that this function is called.
+ * @param noiseField Reference to an image structure for the image noise field.  Will be ignored if writeNoiseField
+ * is false.  This function will populate most of the data values, however, memory must have been assigned for the
+ * image data array (in the first component) by the time that this function is called.  This parameter will disappear
+ * if the definition of noise is removed from f2j.h.
+ * @param writeNoiseField Should the noise field added to this image be written to a JPEG 2000 image?  This parameter will
+ * disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if there were no errors, 1 otherwise.
  */
-int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, long stoke, cube_info *info, int *status) {
+int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, long stoke, cube_info *info, int *status
+#ifdef noise
+		, opj_image_t *noiseField, bool writeNoiseField
+#endif
+	) {
 	// Check parameters.
 	if (fptr == NULL || imageStruct == NULL || info == NULL || status == NULL) {
 		fprintf(stderr,"Parameters to createImageFromFITS cannot be null.\n");
@@ -1164,6 +1302,32 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 	imageStruct->comps[0].sgnd = 0;
 	imageStruct->comps[0].x0 = 0;
 	imageStruct->comps[0].y0 = 0;
+
+#ifdef noise
+	if (writeNoiseField) {
+		// Write basic information about the noise field to be created.
+		noiseField->x0 = 0;
+		noiseField->x1 = info->width;
+		noiseField->y0 = 0;
+		noiseField->y1 = info->height;
+		noiseField->color_space = CLRSPC_GRAY; // Create a grayscale image.
+		noiseField->icc_profile_buf = NULL;
+		noiseField->icc_profile_len = 0;
+
+		// Write basic information about the single noise field image component.
+		noiseField->comps[0].bpp = 16; // Create a 16 bit grayscale image.
+		noiseField->comps[0].prec = 16;
+		noiseField->comps[0].dx = 1;
+		noiseField->comps[0].dy = 1;
+		noiseField->comps[0].factor = 0;
+		noiseField->comps[0].resno_decoded = 0;
+		noiseField->comps[0].w = info->width;
+		noiseField->comps[0].h = info->height;
+		noiseField->comps[0].sgnd = 1; // Use a signed image so we can use the noise values.
+		noiseField->comps[0].x0 = 0;
+		noiseField->comps[0].y0 = 0;
+	}
+#endif
 
 	// Create array used by CFITSIO to specify starting pixel to read from.
 	long fpixel[info->naxis];
@@ -1217,6 +1381,11 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		imageStruct->comps[0].prec = 8;
 
 #ifdef noise
+		if (writeNoiseField) {
+			noiseField->comps[0].bpp = 8;
+			noiseField->comps[0].prec = 8;
+		}
+
 		// Define image maximum intensity for noise simulation PSNR calculations.
 		int max = 255;
 		getIntegerGaussianNoise(NULL,&max,NULL);
@@ -1333,7 +1502,11 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		getIntegerGaussianNoise(NULL,&max,NULL);
 #endif
 
-		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax,info->width);
+		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax,info->width
+#ifdef noise
+				,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField
+#endif
+				);
 
 		if (transformResult != 0) {
 			fprintf(stderr,"Specified transform could not be performed.\n");
@@ -1358,6 +1531,11 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 		imageStruct->comps[0].prec = 8;
 
 #ifdef noise
+		if (writeNoiseField) {
+			noiseField->comps[0].bpp = 8;
+			noiseField->comps[0].prec = 8;
+		}
+
 		// Define image maximum intensity for noise simulation PSNR calculations.
 		int max = 255;
 		getIntegerGaussianNoise(NULL,&max,NULL);
@@ -1544,11 +1722,17 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * @param fileSize Pointer to a off_t assumed to hold the cumulative total of the file sizes of the frames compressed so far.
  * Assumed to be initialised to 0 before the first frame is read.  This enables the compression of the full set of JPEG 2000
  * files corresponding to a datacube to be compared to the entire datacube.
+ * @param writeNoiseField Should the noise field for the image be written to a lossless JPEG 2000 file?  This parameter will
+ * disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, long stokeNumber, int *status, char *outFileStub,
-		bool writeUncompressed, opj_cparameters_t *parameters, quality_benchmark_info *qualityBenchmarkParameters, bool compressionBenchmark, off_t *fileSize) {
+		bool writeUncompressed, opj_cparameters_t *parameters, quality_benchmark_info *qualityBenchmarkParameters, bool compressionBenchmark, off_t *fileSize
+#ifdef noise
+		, bool writeNoiseField
+#endif
+		) {
 	// Check parameters
 	if (info == NULL || fptr == NULL || status == NULL || outFileStub == NULL || parameters == NULL || fileSize == NULL) {
 		fprintf(stderr,"Parameters to setupCompression cannot be null.\n");
@@ -1581,15 +1765,59 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		return 1;
 	}
 
+#ifdef noise
+	// Create noise field image structure.
+	opj_image_t noiseField;
+
+	if (writeNoiseField) {
+		noiseField.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t));
+
+		if (noiseField.comps == NULL) {
+			fprintf(stderr,"Unable to allocate memory for component array for noise field of frame %ld of FITS file.\n",frameNumber);
+			for (ii=0; ii<frame.numcomps; ii++) {
+				free(frame.comps[ii].data);
+			}
+			free(frame.comps);
+			return 1;
+		}
+
+		noiseField.numcomps = 1;
+
+		noiseField.comps[0].data = (int *) malloc(sizeof(int)*info->width*info->height);
+
+		if (noiseField.comps[0].data == NULL) {
+			fprintf(stderr,"Unable to allocate memory for component data for noise field of frame %ld of FITS file.\n",frameNumber);
+			free(noiseField.comps);
+			for (ii=0; ii<frame.numcomps; ii++) {
+				free(frame.comps[ii].data);
+			}
+			free(frame.comps);
+			return 1;
+		}
+	}
+#endif
+
 	// Could potentially specify other opj_image_t/opj_image_comp_t values here, but for flexibility,
 	// they will be set in createImageFromFITS.  We don't want to get into the minutae of writing
 	// image data at this point.
 
 	// Create image
-	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,stokeNumber,info,status);
+	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,stokeNumber,info,status
+#ifdef noise
+			,&noiseField,writeNoiseField
+#endif
+	);
 
 	if (result != 0) {
 		fprintf(stderr,"Unable to create image from frame %ld of FITS file.\n",frameNumber);
+#ifdef noise
+		if (writeNoiseField) {
+			for (ii=0; ii<noiseField.numcomps; ii++) {
+				free(noiseField.comps[ii].data);
+			}
+			free(noiseField.comps);
+		}
+#endif
 		for (ii=0; ii<frame.numcomps; ii++) {
 			free(frame.comps[ii].data);
 		}
@@ -1600,38 +1828,19 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	size_t stublen = strlen(outFileStub);
 
 	if (writeUncompressed) {
-		// Write uncompressed image to file.
-
-		// Lossless compression codec.
-		OPJ_CODEC_FORMAT losslessCodec = CODEC_JP2;
-
-		// Lossless compression parameters.
-		opj_cparameters_t lossless;
-
-		// Initialise to default values.
-		opj_set_default_encoder_parameters(&lossless);
-
-		// Set the right values for lossless encoding (based on examples in image_to_j2k.c)
-		lossless.tcp_mct = 0;
-
-		if (lossless.tcp_numlayers == 0) {
-			lossless.tcp_rates[0] = 0;
-			lossless.tcp_numlayers++;
-			lossless.cp_disto_alloc = 1;
-		}
-
-		// Create filename string for losslessly compressed file.
-		// Name is STUB_LOSSLESS.jp2
-		char losslessFile[stublen + 14];
-
-		sprintf(losslessFile,"%s_LOSSLESS.jp2",outFileStub);
-
-		// Perform JPEG 2000 compression.
-		result = createJPEG2000Image(losslessFile,losslessCodec,&lossless,&frame);
+		ENCODE_LOSSLESSLY(frame,"LOSSLESS",8,outFileStub);
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
 			fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
+#ifdef noise
+			if (writeNoiseField) {
+				for (ii=0; ii<noiseField.numcomps; ii++) {
+					free(noiseField.comps[ii].data);
+				}
+				free(noiseField.comps);
+			}
+#endif
 			for (ii=0; ii<frame.numcomps; ii++) {
 				free(frame.comps[ii].data);
 			}
@@ -1639,6 +1848,30 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 			return 1;
 		}
 	}
+
+#ifdef noise
+	if (writeNoiseField) {
+		ENCODE_LOSSLESSLY(noiseField,"NOISEFIELD",10,outFileStub);
+
+		// Exit unsuccessfully if compression unsuccessful.
+		if (result != 0) {
+			fprintf(stderr,"Unable to compress noise field for frame %ld of FITS file.\n",frameNumber);
+
+			if (writeNoiseField) {
+				for (ii=0; ii<noiseField.numcomps; ii++) {
+					free(noiseField.comps[ii].data);
+				}
+				free(noiseField.comps);
+			}
+
+			for (ii=0; ii<frame.numcomps; ii++) {
+				free(frame.comps[ii].data);
+			}
+			free(frame.comps);
+			return 1;
+		}
+	}
+#endif
 
 	// Write compressed image to file using specified compression parameters.
 
@@ -1659,6 +1892,14 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	// Exit unsuccessfully if compression unsuccessful.
 	if (result != 0) {
 		fprintf(stderr,"Unable to compress frame %ld of FITS file.\n",frameNumber);
+#ifdef noise
+		if (writeNoiseField) {
+			for (ii=0; ii<noiseField.numcomps; ii++) {
+				free(noiseField.comps[ii].data);
+			}
+			free(noiseField.comps);
+		}
+#endif
 		for (ii=0; ii<frame.numcomps; ii++) {
 			free(frame.comps[ii].data);
 		}
@@ -1671,6 +1912,14 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 		performQualityBenchmarking(&frame,compressedFile,qualityBenchmarkParameters,parameters->cod_format);
 	}
 
+#ifdef noise
+	if (writeNoiseField) {
+		for (ii=0; ii<noiseField.numcomps; ii++) {
+			free(noiseField.comps[ii].data);
+		}
+		free(noiseField.comps);
+	}
+#endif
 	for (ii=0; ii<frame.numcomps; ii++) {
 		free(frame.comps[ii].data);
 	}
@@ -1745,13 +1994,16 @@ int main(int argc, char *argv[]) {
 
 	// Has PSNR of image (after noise has been added) been set?
 	bool noiseSet = false;
+
+	// Should the noise field added to the image be written to a file?
+	bool writeNoiseField = false;
 #endif
 
 	// Parse command line parameters.
 	int result = parse_cmdline_encoder(argc,argv,&parameters,&transform,&writeUncompressed,&startFrame,&endFrame,
 			&qualityBenchmarkParameters,&performCompressionBenchmarking,&startStoke,&endStoke
 #ifdef noise
-			,&noiseDB,&noiseSet,&seed,&seedSet,&gaussianNoisePctStdDeviation
+			,&noiseDB,&noiseSet,&seed,&seedSet,&gaussianNoisePctStdDeviation,&writeNoiseField
 #endif
 	);
 
@@ -1832,7 +2084,11 @@ int main(int argc, char *argv[]) {
 
 		// Setup and perform compression.
 		result = setupCompression(&info,fptr,transform,1,1,&status,outFileStub,writeUncompressed,
-				&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
+				&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize
+#ifdef noise
+				,writeNoiseField
+#endif
+				);
 
 		// Exit unsuccessfully if compression unsuccessful.
 		if (result != 0) {
@@ -1916,7 +2172,11 @@ int main(int argc, char *argv[]) {
 
 				// Setup and perform compression.
 				result = setupCompression(&info,fptr,transform,ii,jj,&status,outFileStub,writeUncompressed,
-						&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize);
+						&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize
+#ifdef noise
+						,writeNoiseField
+#endif
+						);
 
 				// Exit unsuccessfully if compression unsuccessful.
 				if (result != 0) {

@@ -309,6 +309,10 @@ OPJ_PROG_ORDER give_progression(char progression[4]) {
  * FITS values (before transforming them into pixel intensities).  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.  Will not be changed unless the -noise_pct command line
  * parameter is present.
+ * @param writeNoiseField Boolean specifying whether or not the -noise_field parameter is present, which determines
+ * whether or not the noise field should be written to a file.  Assumed to be initialised to false before this
+ * function is called and will not be changed if -noise_field and -noise are not present.  If the definition of noise is
+ * removed from f2j.h, this parameter will disappear.
  *
  * @return 0 if parsing was successful, 1 otherwise.
  */
@@ -316,7 +320,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		long *startFrame, long *endFrame, quality_benchmark_info *benchmarkQualityParameters, bool *performCompressionBenchmarking,
 		long *firstStoke, long *lastStoke
 #ifdef noise
-		, double *noiseDB, bool *noiseSet, unsigned long *seed, bool *seedSet, double *noisePct
+		, double *noiseDB, bool *noiseSet, unsigned long *seed, bool *seedSet, double *noisePct, bool *writeNoiseField
 #endif
 		) {
 	int i,j,totlen,c;
@@ -349,7 +353,8 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 #ifdef noise
 		,{"noise",REQ_ARG, NULL, '1'},
 		{"noise_pct",REQ_ARG, NULL, '2'},
-		{"seed",REQ_ARG, NULL, '3'}
+		{"seed",REQ_ARG, NULL, '3'},
+		{"noise_field",NO_ARG, NULL, '4'}
 #endif
 	};
 
@@ -359,7 +364,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		"W:"
 #endif /* USE_JPWL */
 #ifdef noise
-		"1:2:"
+		"1:2:3:4:"
 #endif
 		"h";
 
@@ -405,6 +410,13 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 				if (errno != EINVAL) {
 					*seedSet = true;
 				}
+			}
+			break;
+
+			/* Should the noise field be written to a file?  */
+			case '4':
+			{
+				*writeNoiseField = true;
 			}
 			break;
 #endif
@@ -1329,6 +1341,7 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		fprintf(stderr,"or data volume are converted.  Beware of this when interpreting results.\n");
 	}
 
+#ifdef noise
 	/*
 	 * Note if a seed was set but not a noise value.
 	 */
@@ -1336,6 +1349,15 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		fprintf(stderr,"A random number seed was set but not a target PSNR for noise addition.\n");
 		fprintf(stderr,"The seed will therefore be ignored.\n");
 	}
+
+	/*
+	 * Note if we were asked to write a noise field but not actually asked to add any noise.
+	 */
+	if (*writeNoiseField && !*noiseSet) {
+		fprintf(stderr,"Will not write noise field as no noise will be added to image.\n");
+		*writeNoiseField = false;
+	}
+#endif
 
 	return 0;
 }
