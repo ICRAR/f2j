@@ -25,6 +25,13 @@
 double gaussianNoisePctStdDeviation = 0.0;
 
 /**
+ * Should benchmarking data on the amount of noise added to the image be printed?  Will be
+ * false if the user does not specify a target PSNR for the image after adding noise, true
+ * otherwise.
+ */
+bool printNoiseBenchmark = false;
+
+/**
  * Macro to add Gaussian noise to raw floating point data and ensure that it still
  * remains within its known minimum and maximum values.
  */
@@ -43,6 +50,42 @@ double gaussianNoisePctStdDeviation = 0.0;
 }
 
 /**
+ * Macro to add Gaussian noise to integer pixel intensities, calculate the noise added and
+ * add the square of this value to a cumulative total.
+ *
+ * @param max Maximum pixel intensity in the image.
+ */
+#define ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(max) {\
+	int oldValue = imageData[ii];\
+	imageData[ii] += GET_INTEGER_GAUSSIAN_NOISE();\
+	FIT_TO_RANGE(0,max,imageData[ii]);\
+	unsigned long long int absDif = (unsigned long long int) (abs(imageData[ii]-oldValue));\
+	squareNoiseSum += absDif*absDif;\
+}
+
+/**
+ * Macro to print out Gaussian noise benchmark, showing the actual PSNR in image after
+ * noise has been added and the raw integer data used to calculate that value.
+ *
+ * @param max Maximum pixel intensity in the image.  Should be an integer.
+ */
+#define PRINT_NOISE_BENCHMARK(max) {\
+	if (printNoiseBenchmark) {\
+		fprintf(stdout,"[Squared Noise Sum] [Pixels] [Maximum Intensity] [PSNR with noise (dB)]\n");\
+		fprintf(stdout,"%llu %zu %d ",squareNoiseSum,len,max);\
+		\
+		if (squareNoiseSum > 0) {\
+			fprintf(stdout,"%f\n",10.0*log10(((double)len)*((double)max*max)/((double)squareNoiseSum)));\
+		}\
+		else {\
+			fprintf(stdout,"NO-PSNR\n");\
+		}\
+	}\
+}
+
+#endif // noise
+
+/**
  * Macro to truncate data values so that they lie inside a particular range.
  *
  * @param min Smallest permissible value.
@@ -57,8 +100,6 @@ double gaussianNoisePctStdDeviation = 0.0;
 		var = max;\
 	}\
 }
-
-#endif // noise
 
 /**
  * Macro to perform the FITS read operation and then a specified transformation on
@@ -785,18 +826,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 
 #ifdef noise
-			// Record pre-noise value.
-			int oldValue = imageData[ii];
-
-			// Add noise to pixel.
-			imageData[ii] += GET_INTEGER_GAUSSIAN_NOISE();
-
-			// Make sure the noise doesn't push the pixel intensity out of the valid range.
-			FIT_TO_RANGE(0,65535,imageData[ii]);
-
-			unsigned long long int absDif = (unsigned long long int) (abs(imageData[ii]-oldValue));
-
-			squareNoiseSum += absDif*absDif;
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
 #endif
 
 			if (transform == NEGATIVE_LOG) {
@@ -814,17 +844,9 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 		}
 
 #ifdef noise
-		fprintf(stdout,"[Squared Noise Sum] [Pixels] [PSNR with noise (dB)]\n");
-		fprintf(stdout,"%llu %zu ",squareNoiseSum,len);
-
-		if (squareNoiseSum > 0) {
-			fprintf(stdout,"%f\n",10.0*log10(((double)len)*65535.0*65535.0/((double)squareNoiseSum)));
-		}
-		else {
-			fprintf(stdout,"NO-PSNR\n");
-		}
+		// Print (or don't print) noise simulation benchmarks.
+		PRINT_NOISE_BENCHMARK(65535);
 #endif
-
 		return 0;
 	}
 	else if (transform == LINEAR || transform == NEGATIVE_LINEAR) {
@@ -1804,6 +1826,9 @@ int main(int argc, char *argv[]) {
 	if (noiseSet) {
 		// Set noise.
 		getIntegerGaussianNoise(&noiseDB,NULL,NULL);
+
+		// Print information on the PSNR of the image after adding noise.
+		printNoiseBenchmark = true;
 
 		if (seedSet) {
 			// Set seed.
