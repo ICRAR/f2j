@@ -53,8 +53,7 @@ double gaussianNoisePctStdDeviation = 0.0;
 	if (var < min) {\
 		var = min;\
 	}\
-	\
-	if (var > max) {\
+	else if (var > max) {\
 		var = max;\
 	}\
 }
@@ -149,7 +148,9 @@ void displayHelp() {
 	fprintf(stdout,"-QB_RES      : write residual image\n\n");
 
 #ifdef noise
-	fprintf(stdout,"-noise       : standard deviation of Gaussian noise to add to image pixel intensities \n\n");
+	fprintf(stdout,"-noise       : add Gaussian noise to image pixel intensities to give a specified PSNR\n\n");
+	fprintf(stdout,"-noise_pct   : add Gaussian noise to raw FITS values with a standard deviation specified\n");
+	fprintf(stdout,"               as a percentage of the range of FITS values\n\n");
 #endif
 
 	fprintf(stdout,"JPEG 2000 Compression Options:\n");
@@ -266,7 +267,7 @@ int getIntegerGaussianNoise(double *noiseDB, int *maxIntensity, unsigned long in
 			}
 
 			// Calculate standard deviation for Gaussian noise distribution.
-			noiseDev = ((double) maxPixelIntensity) * exp(-0.05 * db);
+			noiseDev = ((double) maxPixelIntensity) * pow(10.0,-0.05 * db);
 		}
 
 		// Return 0 in the case
@@ -749,6 +750,11 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 	// Loop variables
 	size_t ii;
 
+#ifdef noise
+	// Sum of the squared error introduced to image.
+	unsigned long long int squareNoiseSum = 0;
+#endif
+
 	if (transform == LOG || transform == NEGATIVE_LOG) {
 		double absMin = datamin;
 		double zero = 0.0;
@@ -773,19 +779,25 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
 #endif
 			// Read the flipped image pixel.
-			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) )
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) );
 
 			// Shouldn't get values outside this range, but just in case.
-			if (imageData[ii] < 0) {
-				imageData[ii] = 0;
-			}
-			else if (imageData[ii] > 65535) {
-				imageData[ii] = 65535;
-			}
+			FIT_TO_RANGE(0,65535,imageData[ii]);
+
+#ifdef noise
+			// Record pre-noise value.
+			int oldValue = imageData[ii];
+
+			// Add noise to pixel.
+			imageData[ii] += GET_INTEGER_GAUSSIAN_NOISE();
+
+			// Make sure the noise doesn't push the pixel intensity out of the valid range.
+			FIT_TO_RANGE(0,65535,imageData[ii]);
+
+			unsigned long long int absDif = (unsigned long long int) (abs(imageData[ii]-oldValue));
+
+			squareNoiseSum += absDif*absDif;
+#endif
 
 			if (transform == NEGATIVE_LOG) {
 				imageData[ii] = 65535 - imageData[ii];
@@ -800,6 +812,18 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				index -= 2*width;
 			}
 		}
+
+#ifdef noise
+		fprintf(stdout,"[Squared Noise Sum] [Pixels] [PSNR with noise (dB)]\n");
+		fprintf(stdout,"%llu %zu ",squareNoiseSum,len);
+
+		if (squareNoiseSum > 0) {
+			fprintf(stdout,"%f\n",10.0*log10(((double)len)*65535.0*65535.0/((double)squareNoiseSum)));
+		}
+		else {
+			fprintf(stdout,"NO-PSNR\n");
+		}
+#endif
 
 		return 0;
 	}
