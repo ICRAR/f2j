@@ -25,13 +25,6 @@
 double gaussianNoisePctStdDeviation = 0.0;
 
 /**
- * Should benchmarking data on the amount of noise added to the image be printed?  Will be
- * false if the user does not specify a target PSNR for the image after adding noise, true
- * otherwise.
- */
-bool printNoiseBenchmark = false;
-
-/**
  * Macro to add Gaussian noise to raw floating point data and ensure that it still
  * remains within its known minimum and maximum values.
  */
@@ -123,7 +116,7 @@ bool printNoiseBenchmark = false;
 }
 
 #ifdef noise
-#define TRANSFORM_END ,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField
+#define TRANSFORM_END ,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField,printNoiseBenchmark
 #else
 #define TRANSFORM_END
 #endif
@@ -436,12 +429,14 @@ double getPctGaussianNoise() {
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int longLongImgTransform(long long int *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
@@ -464,12 +459,14 @@ int longLongImgTransform(long long int *rawData, int *imageData, transform trans
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int intImgTransform(int *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
@@ -492,12 +489,14 @@ int intImgTransform(int *rawData, int *imageData, transform transform, size_t le
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	fprintf(stderr,"This data type is not currently supported.\n");
@@ -523,12 +522,14 @@ int uIntImgTransform(unsigned int *rawData, int *imageData, transform transform,
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int shortImgTransform(short *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -610,12 +611,14 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int uShortImgTransform(unsigned short *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -697,12 +700,14 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int byteImgTransform(unsigned char *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -783,12 +788,14 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int sByteImgTransform(signed char *rawData, int *imageData, transform transform, size_t len, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -872,12 +879,14 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
  * disappear.
  * @param writeNoiseField Should noise data be written?  If the definition of noise is removed
  * from f2j.h, this parameter will disappear.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if the transform could be performed successfully, 1 otherwise.
  */
 int floatDoubleTransform(double *rawData, int *imageData, transform transform, size_t len, double datamin, double datamax, size_t width
 #ifdef noise
-		, int *noiseData, bool writeNoiseField
+		, int *noiseData, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	if (rawData == NULL || imageData == NULL || len < 1) {
@@ -1251,12 +1260,14 @@ int getFITSInfo(char *ffname, fitsfile **fptr, cube_info *info, int *status) {
  * if the definition of noise is removed from f2j.h.
  * @param writeNoiseField Should the noise field added to this image be written to a JPEG 2000 image?  This parameter will
  * disappear if the definition of noise is removed from f2j.h.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if there were no errors, 1 otherwise.
  */
 int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageStruct, long frame, long stoke, cube_info *info, int *status
 #ifdef noise
-		, opj_image_t *noiseField, bool writeNoiseField
+		, opj_image_t *noiseField, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 	) {
 	// Check parameters.
@@ -1504,7 +1515,7 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 
 		int transformResult = floatDoubleTransform(imageArray,imageStruct->comps[0].data,transform,info->width*info->height,datamin,datamax,info->width
 #ifdef noise
-				,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField
+				,writeNoiseField ? noiseField->comps[0].data : NULL,writeNoiseField,printNoiseBenchmark
 #endif
 				);
 
@@ -1724,13 +1735,15 @@ int createJPEG2000Image(char *outfile, OPJ_CODEC_FORMAT codec, opj_cparameters_t
  * files corresponding to a datacube to be compared to the entire datacube.
  * @param writeNoiseField Should the noise field for the image be written to a lossless JPEG 2000 file?  This parameter will
  * disappear if the definition of noise is removed from f2j.h.
+ * @param printNoiseBenchmark Should information on the actual PSNR achieved by adding noise to the image be displayed
+ * to the user?  This parameter will disappear if the definition of noise is removed from f2j.h.
  *
  * @return 0 if all operations were successful, 1 otherwise.
  */
 int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long frameNumber, long stokeNumber, int *status, char *outFileStub,
 		bool writeUncompressed, opj_cparameters_t *parameters, quality_benchmark_info *qualityBenchmarkParameters, bool compressionBenchmark, off_t *fileSize
 #ifdef noise
-		, bool writeNoiseField
+		, bool writeNoiseField, bool printNoiseBenchmark
 #endif
 		) {
 	// Check parameters
@@ -1804,7 +1817,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	// Create image
 	int result = createImageFromFITS(fptr,transform,&frame,frameNumber,stokeNumber,info,status
 #ifdef noise
-			,&noiseField,writeNoiseField
+			,&noiseField,writeNoiseField,printNoiseBenchmark
 #endif
 	);
 
@@ -1997,6 +2010,9 @@ int main(int argc, char *argv[]) {
 
 	// Should the noise field added to the image be written to a file?
 	bool writeNoiseField = false;
+
+	// Should information on the actual PSNR achieved after adding noise be displayed?
+	bool printNoiseBenchmark = false;
 #endif
 
 	// Parse command line parameters.
@@ -2086,7 +2102,7 @@ int main(int argc, char *argv[]) {
 		result = setupCompression(&info,fptr,transform,1,1,&status,outFileStub,writeUncompressed,
 				&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize
 #ifdef noise
-				,writeNoiseField
+				,writeNoiseField,printNoiseBenchmark
 #endif
 				);
 
@@ -2174,7 +2190,7 @@ int main(int argc, char *argv[]) {
 				result = setupCompression(&info,fptr,transform,ii,jj,&status,outFileStub,writeUncompressed,
 						&parameters,&qualityBenchmarkParameters,performCompressionBenchmarking,&compressedFileSize
 #ifdef noise
-						,writeNoiseField
+						,writeNoiseField,printNoiseBenchmark
 #endif
 						);
 
