@@ -102,6 +102,20 @@ bool printNoiseBenchmark = false;
 }
 
 /**
+ * Macro to update index enable vertical flipping of a FITS file after
+ * it has been read.
+ */
+#define UPDATE_FLIPPING_INDEX() {\
+	index++;\
+	dif++;\
+	\
+	if (dif >= width) {\
+		dif = 0;\
+		index -= 2*width;\
+	}\
+}
+
+/**
  * Macro to perform the FITS read operation and then a specified transformation on
  * data from a FITS file.
  *
@@ -454,14 +468,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -483,14 +490,7 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -542,14 +542,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -571,14 +564,7 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 			FIT_TO_RANGE(0,65535,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -630,14 +616,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -659,14 +638,7 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -718,14 +690,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -747,14 +712,7 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 			FIT_TO_RANGE(0,255,imageData[ii]);
 #endif
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -833,14 +791,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 #ifdef noise
@@ -885,14 +836,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -930,14 +874,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -975,14 +912,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
@@ -1027,14 +957,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 				imageData[ii] = 65535 - imageData[ii];
 			}
 
-			// Update index for vertical flipping.
-			index++;
-			dif++;
-
-			if (dif >= width) {
-				dif = 0;
-				index -= 2*width;
-			}
+			UPDATE_FLIPPING_INDEX();
 		}
 
 		return 0;
