@@ -35,7 +35,7 @@ bool printNoiseBenchmark = false;
  * Macro to add Gaussian noise to raw floating point data and ensure that it still
  * remains within its known minimum and maximum values.
  */
-#define ADD_GAUSSIAN_NOISE_TO_RAW_VALUES {\
+#define ADD_GAUSSIAN_NOISE_TO_RAW_VALUES() {\
 	if (gaussianNoisePctStdDeviation >= 0.0000001 || gaussianNoisePctStdDeviation <= -0.0000001) {\
 		rawData[index] += (datamax-datamin) * getPctGaussianNoise();\
 		\
@@ -451,6 +451,11 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 	// Loop variables
 	size_t ii;
 
+#ifdef noise
+	// Sum of the squared error introduced to image.
+	unsigned long long int squareNoiseSum = 0;
+#endif
+
 	if (transform == RAW) {
 		// Variables that enable us to flip the image vertically as we read it in.
 		size_t index = len-width;
@@ -458,19 +463,18 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// Shift scales (from signed to unsigned) then do a 1-1 mapping.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index] + 32768
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) rawData[index] + 32768;
 
 #ifdef noise
-			FIT_TO_RANGE(0,65535,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
@@ -480,19 +484,18 @@ int shortImgTransform(short *rawData, int *imageData, transform transform, size_
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 32767 - (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = 32767 - (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,65535,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 
@@ -525,6 +528,11 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 	// Loop variables
 	size_t ii;
 
+#ifdef noise
+	// Sum of the squared error introduced to image.
+	unsigned long long int squareNoiseSum = 0;
+#endif
+
 	if (transform == RAW) {
 		// Variables that enable us to flip the image vertically as we read it in.
 		size_t index = len-width;
@@ -532,19 +540,18 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// Simple raw copying.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,65535,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
@@ -554,19 +561,18 @@ int uShortImgTransform(unsigned short *rawData, int *imageData, transform transf
 
 		// As for linear, but subtract from 65535
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 65535 - (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = 65535 - (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,65535,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 
@@ -599,6 +605,11 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 	// Loop variables
 	size_t ii;
 
+#ifdef noise
+	// Sum of the squared error introduced to image.
+	unsigned long long int squareNoiseSum = 0;
+#endif
+
 	if (transform == RAW) {
 		// Variables that enable us to flip the image vertically as we read it in.
 		size_t index = len-width;
@@ -606,19 +617,18 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Simple raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,255,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(255);
+#endif
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
@@ -628,19 +638,17 @@ int byteImgTransform(unsigned char *rawData, int *imageData, transform transform
 
 		// Invert raw transform
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 255 - (int) rawData[index]
+			imageData[ii] = 255 - (int) rawData[index];
 #ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
-
-#ifdef noise
-			FIT_TO_RANGE(0,255,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(255);
+#endif
 		return 0;
 	}
 
@@ -673,6 +681,11 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 	// Loop variables
 	size_t ii;
 
+#ifdef noise
+	// Sum of the squared error introduced to image.
+	unsigned long long int squareNoiseSum = 0;
+#endif
+
 	if (transform == RAW) {
 		// Variables that enable us to flip the image vertically as we read it in.
 		size_t index = len-width;
@@ -680,19 +693,18 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Take raw data, shift it to be unsigned.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 128 + (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = 128 + (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,255,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(255);
+#endif
 		return 0;
 	}
 	else if (transform == NEGATIVE_RAW) {
@@ -702,19 +714,18 @@ int sByteImgTransform(signed char *rawData, int *imageData, transform transform,
 
 		// Invert raw transform.
 		for (ii=0; ii<len; ii++) {
-			imageData[ii] = 127 + (int) rawData[index]
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = 127 + (int) rawData[index];
 
 #ifdef noise
-			FIT_TO_RANGE(0,255,imageData[ii]);
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(255);
 #endif
 
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(255);
+#endif
 		return 0;
 	}
 
@@ -775,7 +786,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES();
 #endif
 			// Read the flipped image pixel.
 			imageData[ii] = (int) (scale * log( (rawData[index] + zero) / absMin) );
@@ -817,7 +828,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES();
 #endif
 			imageData[ii] = (int) (rawData[index] * scale);
 			FIT_TO_RANGE(0,65535,imageData[ii]);
@@ -852,7 +863,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES();
 #endif
 			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin));
 			FIT_TO_RANGE(0,65535,imageData[ii]);
@@ -887,7 +898,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES();
 #endif
 			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin));
 			FIT_TO_RANGE(0,65535,imageData[ii]);
@@ -929,7 +940,7 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 
 		for (ii=0; ii<len; ii++) {
 #ifdef noise
-			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
+			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES();
 #endif
 			imageData[ii] = (int) (scale * exp(rawData[index]) + offset);
 			FIT_TO_RANGE(0,65535,imageData[ii]);
@@ -1175,6 +1186,18 @@ int createImageFromFITS(fitsfile *fptr, transform transform, opj_image_t *imageS
 			}
 		}
 	}
+
+#ifdef noise
+	// Print information on the current plane & stoke being read.
+	if (printNoiseBenchmark) {
+		if (info->naxis == 3) {
+			fprintf(stdout,"Plane %ld\n",frame);
+		}
+		else if (info->naxis>3) {
+			fprintf(stdout,"Plane %ld, Stoke %ld\n",frame,stoke);
+		}
+	}
+#endif
 
 	// Different reading operations for each different image type.
 	// 8 bit unsigned integer case

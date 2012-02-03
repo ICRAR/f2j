@@ -1320,12 +1320,21 @@ int parse_cmdline_encoder(int argc, char **argv, opj_cparameters_t *parameters, 
 		}
 	}
 
-	/* Compression benchmarking is only accurate if all planes of a data cube are read.  Display a message
+	/*
+	 * Compression benchmarking is only accurate if all planes of a data cube are read.  Display a message
 	 * informing the user of this if they specify a custom starting plane.
 	 */
 	if (*performCompressionBenchmarking && (*startFrame != -1  || *firstStoke != -1) ) {
 		fprintf(stderr,"Compression benchmarking results are only accurate if all planes and stokes of a data cube\n");
 		fprintf(stderr,"or data volume are converted.  Beware of this when interpreting results.\n");
+	}
+
+	/*
+	 * Note if a seed was set but not a noise value.
+	 */
+	if (*seedSet && !*noiseSet) {
+		fprintf(stderr,"A random number seed was set but not a target PSNR for noise addition.\n");
+		fprintf(stderr,"The seed will therefore be ignored.\n");
 	}
 
 	return 0;
