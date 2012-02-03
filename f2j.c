@@ -819,18 +819,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #ifdef noise
 			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
 #endif
-			imageData[ii] = (int) (rawData[index] * scale)
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) (rawData[index] * scale);
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 
-			if (imageData[ii] < 0) {
-				imageData[ii] = 0;
-			}
-			else if (imageData[ii] > 65535) {
-				imageData[ii] = 65535;
-			}
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+#endif
 
 			if (transform == NEGATIVE_LINEAR) {
 				imageData[ii] = 65535 - imageData[ii];
@@ -839,6 +833,9 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 	else if (transform == SQRT || transform == NEGATIVE_SQRT) {
@@ -857,18 +854,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #ifdef noise
 			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
 #endif
-			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin))
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) (scale * sqrt(rawData[index]-datamin));
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 
-			if (imageData[ii] < 0) {
-				imageData[ii] = 0;
-			}
-			else if (imageData[ii] > 65535) {
-				imageData[ii] = 65535;
-			}
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+#endif
 
 			if (transform == NEGATIVE_SQRT) {
 				imageData[ii] = 65535 - imageData[ii];
@@ -877,6 +868,9 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 	else if (transform == SQUARED || transform == NEGATIVE_SQUARED) {
@@ -895,18 +889,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #ifdef noise
 			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
 #endif
-			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin))
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) (scale * (rawData[index]-datamin) * (rawData[index]-datamin));
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 
-			if (imageData[ii] < 0) {
-				imageData[ii] = 0;
-			}
-			else if (imageData[ii] > 65535) {
-				imageData[ii] = 65535;
-			}
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+#endif
 
 			if (transform == NEGATIVE_SQUARED) {
 				imageData[ii] = 65535 - imageData[ii];
@@ -915,6 +903,9 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 	else if (transform == POWER || transform == NEGATIVE_POWER) {
@@ -940,18 +931,12 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 #ifdef noise
 			ADD_GAUSSIAN_NOISE_TO_RAW_VALUES;
 #endif
-			imageData[ii] = (int) (scale * exp(rawData[index]) + offset)
-#ifdef noise
-				+ GET_INTEGER_GAUSSIAN_NOISE()
-#endif
-			;
+			imageData[ii] = (int) (scale * exp(rawData[index]) + offset);
+			FIT_TO_RANGE(0,65535,imageData[ii]);
 
-			if (imageData[ii] < 0) {
-				imageData[ii] = 0;
-			}
-			else if (imageData[ii] > 65535) {
-				imageData[ii] = 65535;
-			}
+#ifdef noise
+			ADD_GAUSSIAN_NOISE_TO_INTEGER_VALUES(65535);
+#endif
 
 			if (transform == NEGATIVE_POWER) {
 				imageData[ii] = 65535 - imageData[ii];
@@ -960,6 +945,9 @@ int floatDoubleTransform(double *rawData, int *imageData, transform transform, s
 			UPDATE_FLIPPING_INDEX();
 		}
 
+#ifdef noise
+		PRINT_NOISE_BENCHMARK(65535);
+#endif
 		return 0;
 	}
 
