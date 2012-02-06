@@ -10,6 +10,8 @@
  *
  * @section LICENSE
  *
+ * This program is distributed under the <a href="http://www.gnu.org/copyleft/gpl.html">GNU General Public License</a> (GPL).
+ *
  * <b>OpenJPEG</b>
  *
  * This program uses code from the <a href="http://www.openjpeg.org/">OpenJPEG library</a>, which carries the following BSD license.
@@ -75,7 +77,7 @@
  * FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR
  * SERVICES PROVIDED HEREUNDER.
  *
- * <b>GSL</b>
+ * <b>GNU Scientific Library (GSL)</b>
  *
  * The <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library</a> is
  * used by this program, which is distributed under the
