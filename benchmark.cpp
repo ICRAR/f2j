@@ -246,7 +246,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 		bool canWriteResidual = true;
 
 		if (parameters->writeResidual) {
-			residualImage.comps = malloc(sizeof(opj_image_comp_t) * image->numcomps);
+			residualImage.comps = (opj_image_comp_t *) malloc(sizeof(opj_image_comp_t) * image->numcomps);
 			if (!residualImage.comps) {
 				fprintf(stderr,"Unable to allocate memory for residual image components of file %s",compressedFile);
 				opj_image_destroy(compressedImage);
@@ -300,7 +300,7 @@ int performQualityBenchmarking(opj_image_t *image, char *compressedFile, quality
 
 			if (parameters->writeResidual) {
 				// Allocate memory for residual image data.
-				residualImage.comps[ii].data = malloc(sizeof(int) * pixels);
+				residualImage.comps[ii].data = (int *) malloc(sizeof(int) * pixels);
 				if (!residualImage.comps[ii].data) {
 					// Free memory for other components.
 					for (jj=0; jj<ii; jj++) {

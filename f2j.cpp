@@ -14,6 +14,15 @@
 
 #include "f2j.h"
 
+#ifdef parallel
+	int setupCompression(cube_info *,fitsfile *,transform,long,long,int *,char *,bool,opj_cparameters_t *,
+			quality_benchmark_info *,bool,off_t *
+#ifdef noise
+		,bool,bool
+#endif
+		);
+#endif
+
 #ifdef noise
 /**
  * Percentage standard deviation of Gaussian noise to be generated in image.  Will be
@@ -182,6 +191,196 @@ double gaussianNoisePctStdDeviation = 0.0;
 	\
 	result = createJPEG2000Image(losslessFile,losslessCodec,&lossless,&image);\
 }
+
+#ifdef parallel
+/**
+ * Template class allowing for parallelisation of FITS to JPEG 2000 conversion
+ * loop using TBB.  If the definition of parallel is removed from f2j.h, this
+ * class will disappear.
+ */
+class EncodePlaneParallel {
+	/**
+	 * First stoke to read.
+	 */
+	long startStoke;
+
+	/**
+	 * Last stoke to read.
+	 */
+	long endStoke;
+
+	/**
+	 * Length of character array to allocate for output file name.
+	 */
+	size_t oflen;
+
+	/**
+	 * Name of FITS file to read.
+	 */
+	char *ffname;
+
+	/**
+	 * Reference to information on the data cube being read.  Will not be altered.
+	 */
+	cube_info *info;
+
+	/**
+	 * Should a losslessly compressed version of the image be written?
+	 */
+	bool writeUncompressed;
+
+	/**
+	 * Reference to structure defining compression parameters.
+	 */
+	opj_cparameters_t *parameters;
+
+	/**
+	 * Should compression benchmarking be performed?
+	 */
+	bool performCompressionBenchmarking;
+
+	/**
+	 * Sum of sizes of compressed files.
+	 */
+	off_t *compressedFileSize;
+
+	/**
+	 * Reference to structure containing information on quality benchmarks
+	 * to perform.
+	 */
+	quality_benchmark_info *qualityBenchmarkParameters;
+
+	/**
+	 * Transform to perform on raw FITS data.
+	 */
+	transform imageTransform;
+
+#ifdef noise
+	/**
+	 * Should the noise field added to the image be written to a file?
+	 */
+	bool writeNoiseField;
+
+	/**
+	 * Should information on noise benchmarks be printed on the screen?
+	 */
+	bool printNoiseBenchmark;
+#endif
+
+public :
+	/**
+	 * Template function containing operations to convert one plane of a
+	 * JPEG 2000 image into a FITS file.
+	 *
+	 * @param r blocked_range<long> specifying the range of planes to
+	 * convert to JPEG 2000.
+	 */
+	void operator() ( const blocked_range<long>& r) const {
+		for (long ii = r.begin(); ii != r.end(); ii++) {
+			for (long jj=startStoke; jj<=endStoke; jj++) {
+				// Declare variables for reading FITS files needed by CFITSIO.
+				fitsfile *fptr;
+				int status = 0;
+
+				// Open FITS file.
+				fits_open_file(&fptr,ffname, READONLY,&status);
+
+				if (status != 0) {
+					fprintf(stderr,"Unable to open FITS file: %s\n",ffname);
+					exit(EXIT_FAILURE);
+				}
+
+				// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
+				// image structure is allocatged as part of the setupCompression function.
+				// If this code was being run in serial, we could save time by initialising the image structure
+				// outside of the loop, to prevent a new memory allocation being performed every time the loop
+				// ran.  However, if this code is to be parallelised, we want a separate memory allocation for
+				// each frame of the image, to allow this process to be run in parallel.
+
+				char intermediate[oflen];
+				char outFileStub[oflen];
+
+				// Copy input file name to intermediary string.
+				strcpy(intermediate,ffname);
+
+				// Get the last dot
+				char *dotPosition = strrchr(intermediate,'.');
+
+				// Overwrite it with an underscore.
+				*dotPosition = '_';
+				*(dotPosition+1) = '\0';
+
+				if (info->naxis>3) {
+					sprintf(outFileStub,"%s%ld_%ld%s",intermediate,ii,jj,parameters->outfile);
+				}
+				else {
+					sprintf(outFileStub,"%s%ld%s",intermediate,ii,parameters->outfile);
+				}
+
+				// Setup and perform compression.
+				int result = setupCompression(info,fptr,imageTransform,ii,jj,&status,outFileStub,writeUncompressed,
+						parameters,qualityBenchmarkParameters,performCompressionBenchmarking,compressedFileSize
+#ifdef noise
+						,writeNoiseField,printNoiseBenchmark
+#endif
+						);
+
+				// Exit unsuccessfully if compression unsuccessful.
+				if (result != 0) {
+					if (info->naxis>3) {
+						fprintf(stderr,"Unable to compress frame %ld of stoke %ld of file %s.\n",ii,jj,ffname);
+					}
+					else {
+						fprintf(stderr,"Unable to compress frame %ld of file %s.\n",ii,ffname);
+					}
+
+					fits_close_file(fptr,&status);
+					exit(EXIT_FAILURE);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Constructor.  Takes values that are useful inside the parallelised loop, but defined
+	 * outside it, as parameters.
+	 *
+	 * @param ss First stoke to read.
+	 * @param es Last stoke to read.
+	 * @param ol Length of output filename character array (oflen in original loop).
+	 * @param ff Name of FITS file to read.
+	 * @param ci Reference to cube_info structure with information on the FITS file
+	 * being read.
+	 * @param wu Should a losslessly encoded version of the file be written?
+	 * @param p Reference to a opj_cparameters_t structure specifying compression
+	 * parameters.
+	 * @param pcb Should compression benchmarking be performed?
+	 * @param cfs Reference to an off_t integer (assumed to be initialised to 0) used
+	 * to store the sum of the sizes of the compressed JPEG 2000 image(s).
+	 * @param qbp Reference to a quality_benchmark_info structure specifying the
+	 * quality benchmarks (if any) to perform on the JPEG 2000 image(s).
+	 * @param t Transform to perform on raw FITS data when converting to JPEG 2000
+	 * images.
+	 * @param wnf Should the noise field added to the image be written to a file?  This
+	 * parameter will disappear if the definition of noise is removed from f2j.h.
+	 * @param pnb Should information on the achieved PSNR of the image (after simulated
+	 * noise has been added) be displayed?  This parameter will disappear if the definition
+	 * of noise is removed from f2j.h.
+	 */
+	EncodePlaneParallel(long ss, long es, size_t ol, char *ff, cube_info *ci, bool wu, opj_cparameters_t *p,
+			bool pcb, off_t *cfs, quality_benchmark_info *qbp, transform t
+#ifdef noise
+			, bool wnf, bool pnb
+#endif
+			) :
+		startStoke(ss) , endStoke(es) , oflen(ol) , ffname(ff) , info(ci) , writeUncompressed(wu) , parameters(p) ,
+		performCompressionBenchmarking(pcb) , compressedFileSize(cfs) , qualityBenchmarkParameters(qbp) , imageTransform(t)
+#ifdef noise
+		, writeNoiseField(wnf) , printNoiseBenchmark(pnb)
+#endif
+	{}
+};
+#endif
 
 /**
  * Displays usage information for f2j.  Exits with EXIT_FAILURE when finished.
@@ -1900,7 +2099,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 	}
 
 	// Perform JPEG 2000 compression.
-	result = createJPEG2000Image(compressedFile,parameters->cod_format,parameters,&frame);
+	result = createJPEG2000Image(compressedFile,(OPJ_CODEC_FORMAT) parameters->cod_format,parameters,&frame);
 
 	// Exit unsuccessfully if compression unsuccessful.
 	if (result != 0) {
@@ -1922,7 +2121,7 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
 
 	if (qualityBenchmarkParameters->performQualityBenchmarking || qualityBenchmarkParameters->writeResidual) {
 		// Perform quality benchmarking.  Currently we specify no benchmarking options (NULL).
-		performQualityBenchmarking(&frame,compressedFile,qualityBenchmarkParameters,parameters->cod_format);
+		performQualityBenchmarking(&frame,compressedFile,qualityBenchmarkParameters,(OPJ_CODEC_FORMAT) parameters->cod_format);
 	}
 
 #ifdef noise
@@ -1958,6 +2157,10 @@ int setupCompression(cube_info *info, fitsfile *fptr, transform transform, long 
  * Main function run from the command line.
  */
 int main(int argc, char *argv[]) {
+#ifdef parallel
+	// Setup parallelisation task scheduler.
+	task_scheduler_init init;
+#endif
 	// Transform (if any) to perform on raw data.  This is the default value.  May be changed
 	// when parsing user input from the command line.
 	transform transform = DEFAULT;
@@ -2056,8 +2259,10 @@ int main(int argc, char *argv[]) {
 	fitsfile *fptr;
 	int status = 0;
 
+#ifndef parallel
 	// Loop variables
 	long ii,jj;
+#endif
 
 	// Information on the data cube
 	cube_info info;
@@ -2112,6 +2317,10 @@ int main(int argc, char *argv[]) {
 			fits_close_file(fptr,&status);
 			exit(EXIT_FAILURE);
 		}
+
+#ifdef parallel
+		fits_close_file(fptr, &status);
+#endif
 	}
 	else {
 		// Valid start and end frames specified
@@ -2151,20 +2360,33 @@ int main(int argc, char *argv[]) {
 			endStoke = 1;
 		}
 
+		// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2 for a
+		// data cube or input file name (minus FITS extension) + _ + frame number + _ + stoke number + .JP2
+		// for a data volume.
+		// An additional 50 characters is sufficient for the additional data.
+		size_t oflen = ilen + 50 + slen;
+
+#ifdef parallel
+		// Close FITS file (in parallel version, we get a new pointer for each frame).
+		fits_close_file(fptr, &status);
+
+		// Run parallel for loop.
+		parallel_for(blocked_range<long>(startFrame,endFrame+1),
+				EncodePlaneParallel(startStoke,endStoke,oflen,ffname,&info,writeUncompressed,
+						&parameters,performCompressionBenchmarking,&compressedFileSize,&qualityBenchmarkParameters,transform
+#ifdef noise
+						,writeNoiseField,printNoiseBenchmark
+#endif
+		));
+#else
 		for (ii=startFrame; ii<=endFrame; ii++) {
 			for (jj=startStoke; jj<=endStoke; jj++) {
 				// Setup and perform compression for this frame.  Each time the loop runs, memory for a new
-				// image structure is allocatged as part of the setupCompression function.
+				// image structure is allocated as part of the setupCompression function.
 				// If this code was being run in serial, we could save time by initialising the image structure
 				// outside of the loop, to prevent a new memory allocation being performed every time the loop
 				// ran.  However, if this code is to be parallelised, we want a separate memory allocation for
 				// each frame of the image, to allow this process to be run in parallel.
-
-				// Output file will be input file name (minus FITS extension) + _ + frame number + .JP2 for a
-				// data cube or input file name (minus FITS extension) + _ + frame number + _ + stoke number + .JP2
-				// for a data volume.
-				// An additional 50 characters is sufficient for the additional data.
-				size_t oflen = ilen + 50 + slen;
 
 				char intermediate[oflen];
 				char outFileStub[oflen];
@@ -2208,10 +2430,14 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+#endif
+
 	}
 
+#ifndef parallel
 	// Close FITS file.
 	fits_close_file(fptr, &status);
+#endif
 
 	if (performCompressionBenchmarking) {
 		off_t fitsSize;

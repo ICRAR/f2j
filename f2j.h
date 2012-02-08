@@ -82,6 +82,13 @@
  * The <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library</a> is
  * used by this program, which is distributed under the
  * <a href="http://www.gnu.org/copyleft/gpl.html">GNU General Public License</a> (GPL).
+ *
+ * <b>Threading Building Blocks</b>
+ *
+ * The Intel <a href="http://threadingbuildingblocks.org/">Threading Building Blocks</a>
+ * library is used for parallelisation of this program.  This library is distributed under
+ * the <a href="http://threadingbuildingblocks.org/wiki/index.php?title=Licensing">GPL v2
+ * with the libstdC++ Runtime Exception</a>
  */
 
 #ifndef F2J_H_
@@ -95,6 +102,11 @@
  */
 #define noise
 
+/**
+ * Do we want the program to run in parallel using TBB?
+ */
+#define parallel
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -102,6 +114,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <openjpeg-1.99/openjpeg.h>
+#include "fitsio.h"
 
 #ifdef noise
 #include <time.h>
@@ -109,7 +122,13 @@
 #include <gsl/gsl_randist.h>
 #endif
 
-#include "fitsio.h"
+#ifdef parallel
+#include "tbb/task_scheduler_init.h"
+#include "tbb/blocked_range.h"
+#include "tbb/parallel_for.h"
+using namespace tbb;
+#endif
+
 
 /**
  * Structure for defining essential properties of a FITS datacube.
