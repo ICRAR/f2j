@@ -1,0 +1,63 @@
+f2j - FITS to JPEG 2000 conversion utility
+------------------------------------------
+
+parallel branch - this is an experimental branch that converts data cube image planes in parallel using Intel's Thread Building Blocks (TBB).  This branch demonstrates the basic concept of running f2j in parallel, but has not been rigorously tested.  
+
+System Requirements:
+--------------------
+This program was developed and tested on Mac OS X Snow Leopard, however, there should not be any (substantial amounts of) system dependent code and therefore the program should compile (or be easily amended to compile) on any platform supporting the utilised libraries.  
+
+Build instructions assume the presence of Eclipse CDT, but it should not be difficult to modify this process to compile outside of Eclipse.  
+
+Dependencies:
+-------------
+The following libraries are required to run f2j.  
+-OpenJPEG
+Version 1.99, checked out from Subversion (see more information here: http://www.openjpeg.org/index.php?menu=download).  
+
+The version we worked with is in the openjpeg-latest.zip file at the root of this repository (master branch).  This is included in cases future changes to OpenJPEG break compatibility with f2j (although it should not be difficult to modify f2j to work with newer OpenJPEG versions).  
+
+-CFITSIO
+Available from <http://heasarc.gsfc.nasa.gov/fitsio/>.  
+
+-GNU Scientific Library (GSL)
+Available from <http://www.gnu.org/software/gsl/>.  Only required if noise simulation functionality is needed.  
+
+-Intel Thread Building Blocks
+Available from <http://threadingbuildingblocks.org/>.  Only required if parallelisation is required.  
+
+Doxygen (http://www.doxygen.org/) is needed to compile documentation.  
+
+Setting up Eclipse:
+-------------------
+These instructions apply to Eclipse Indigo CDT on Mac OS X.  The EGit plugin should be installed (and optionally Eclox to compile doxygen documentation from within Eclipse).  
+
+Clone Repository
+1.  Open the Eclipse workspace within which you would like to work with f2j.  
+2.  Go to File->Import, expand the 'Git' drop down list and click on 'Projects from Git'.  
+3.  Enter 'github.com:ICRAR/SkuareView.git' (no quotes) in the text box and click on 'CloneÉ'.  
+4.  Under connection, select 'git' as the protocol and click on 'Next'.  
+5.  All branches should be selected by default.  Ensure the parallel branch is selected and that this is the initial branch.  
+6.  Select the local folder that will hold the Git repository and then click on 'Next'.  
+7.  Click on 'Finish'.  If the newly cloned repository does not appear in the list on the 'Select a Git Repository' wizard page, close the wizard and repeat steps 1 and 2.  The new repository should appear in the list.  Select it and click 'Next' twice.  Click on 'Finish'.  
+
+The project files should now be imported into Eclipse.  
+
+Setting Up Libraries
+1.  Select the f2j project in the 'Project Explorer' list, right click on it and select 'Properties'.  Expand the 'C/C++ Build' list and click on 'Settings'.  
+2.  Under 'Cross GCC Compiler', select 'Includes'.  Replace all /Users/acannon/Downloads/* with their equivalent paths depending on the locations where you have extracted the TBB, CFITSIO and OpenJPEG source files.  Once finished, click 'Apply'.  (Note that if you may need to add further include paths in this window if any of the header files specified in f2j.h are not found when building the project).  You will need to make these changes under both 'Debug' and 'Release' configurations.  Repeat these changes under the 'Cross G++ compiler'.  
+3.  Under 'Cross G++ Linker', select 'Libraries'.  Replace all /Users/acannon/Downloads/* paths with the path to the compiled TBB and CFITSIO libraries on your system.  Click on 'Apply'.  This must be repeated for both 'Debug' and 'Release' configurations.  (Again, you may need to add further library paths here if you encounter linking errors when building).  
+4.  Click on 'OK' to exit this window.  
+
+Building the program
+1.  Click on Project->Build All.  Binaries will appear in the Release/ and Debug/ directories as appropriate.  
+
+Build options:
+--------------
+Noise simulation functionality can be disabled by removing the definition of noise from f2j.h.  This will make the FITS to JPEG 2000 conversion process faster if noise simulation functionality is not needed.  GSL is not required when noise simulation is disabled.  
+
+The TBB based parallel components of the program can be disabled by removing the definition of parallel from f2j.h.  If this is done, the TBB libraries are not required.  
+
+Help:
+-----
+Run ./f2j -h for information on program usage.  
