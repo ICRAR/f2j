@@ -30,7 +30,7 @@ These instructions apply to Eclipse Indigo CDT on Mac OS X.  The EGit plugin sho
 Clone Repository
 1.  Open the Eclipse workspace within which you would like to work with f2j.  
 2.  Go to File->Import, expand the 'Git' drop down list and click on 'Projects from Git'.  
-3.  Enter 'github.com:ICRAR/SkuareView.git' (no quotes) in the text box and click on 'Clone…'.  
+3.  Enter 'github.com:ICRAR/f2j.git' (no quotes) in the text box and click on 'Clone…'.  
 4.  Under connection, select 'git' as the protocol and click on 'Next'.  
 5.  All branches should be selected by default.  If you are not interested in experimental branches, de-select everything except 'master'.  
 6.  Select the local folder that will hold the Git repository and then click on 'Next'.  
